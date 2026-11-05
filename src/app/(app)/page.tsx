@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { HomeChiller, HomeReminders } from "@/components/home-reminders";
 import { useI18n } from "@/i18n/provider";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -53,13 +54,9 @@ export default function HomePage() {
           </li>
         ))}
       </ul>
+      <HomeReminders />
+      <HomeChiller />
       <ul className="flex flex-col gap-3">
-        <li>
-          <Link href="/chiller" className="block rounded-3xl border border-line bg-card px-5 py-4">
-            <span className="block text-base font-semibold">{t("home.chiller")}</span>
-            <span className="mt-1 block text-sm leading-6 text-muted">{t("home.chillerDetail")}</span>
-          </Link>
-        </li>
         <li>
           <Link href="/onboarding" className="block rounded-3xl border border-line bg-card px-5 py-4">
             <span className="block text-base font-semibold">{t("home.profile")}</span>
