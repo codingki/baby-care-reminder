@@ -32,9 +32,9 @@ create type public.log_kind as enum ('diaper', 'feed', 'pump');
 
 create type public.diaper_kind as enum ('wet', 'dirty', 'mixed', 'dry');
 
-create type public.feed_kind as enum ('bottle', 'breast', 'formula');
+create type public.feed_kind as enum ('bottle', 'nursing');
 
-create type public.pump_side as enum ('left', 'right', 'both');
+create type public.side as enum ('left', 'right', 'both');
 
 create type public.storage_location as enum (
   'room',
@@ -144,12 +144,22 @@ create table public.logs (
   diaper_kind public.diaper_kind,
   feed_kind public.feed_kind,
   amount_ml integer,
-  pump_side public.pump_side,
+  side public.side,
   duration_seconds integer,
+  started_at timestamptz,
+  ended_at timestamptz,
   created_at timestamptz not null default now(),
   constraint logs_amount_nonnegative check (amount_ml is null or amount_ml >= 0),
   constraint logs_duration_nonnegative check (
     duration_seconds is null or duration_seconds >= 0
+  ),
+  constraint logs_session_times check (
+    (started_at is null and ended_at is null)
+    or (
+      started_at is not null
+      and ended_at is not null
+      and ended_at >= started_at
+    )
   ),
   constraint logs_kind_fields check (
     (
@@ -157,29 +167,54 @@ create table public.logs (
       and diaper_kind is not null
       and feed_kind is null
       and amount_ml is null
-      and pump_side is null
+      and side is null
       and duration_seconds is null
+      and started_at is null
+      and ended_at is null
     )
     or (
       kind = 'feed'
+      and feed_kind = 'bottle'
       and amount_ml is not null
       and amount_ml > 0
       and diaper_kind is null
-      and pump_side is null
+      and side is null
       and duration_seconds is null
+      and started_at is null
+      and ended_at is null
+    )
+    or (
+      kind = 'feed'
+      and feed_kind = 'nursing'
+      and amount_ml is null
+      and diaper_kind is null
+      and side is not null
+      and duration_seconds is not null
+      and duration_seconds > 0
     )
     or (
       kind = 'pump'
       and diaper_kind is null
       and feed_kind is null
+      and started_at is null
+      and ended_at is null
       and (amount_ml is null or amount_ml > 0)
     )
   )
 );
 
 comment on table public.logs is
-  'Diaper, feed (millilitres), and pump events for a baby.';
-comment on column public.logs.amount_ml is 'Feed or pump volume in millilitres.';
+  'Diaper, feed (bottle in ml, or nursing), and pump events for a baby.';
+comment on column public.logs.amount_ml is
+  'Bottle feed or pump volume in millilitres. Null for nursing.';
+comment on column public.logs.side is
+  'Left, right, or both. Used by nursing feeds and pump sessions.';
+comment on column public.logs.duration_seconds is
+  'Nursing or pump length in seconds.';
+comment on column public.logs.started_at is
+  'Optional nursing start. Set together with ended_at.';
+comment on column public.logs.ended_at is
+  'Optional nursing end. Set together with started_at.';
 
 create index logs_baby_occurred_idx on public.logs (baby_id, occurred_at desc);
 create index logs_family_id_idx on public.logs (family_id);
