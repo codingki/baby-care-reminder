@@ -30,7 +30,7 @@ export const id = {
     diaper: "Popok",
     diaperDetail: "Basah, kotor, campur, atau kering",
     feed: "Minum",
-    feedDetail: "Botol dalam ml, atau menyusui",
+    feedDetail: "Jumlah dalam ml",
     pump: "Pompa",
     pumpDetail: "Sisi dan durasi",
     chiller: "Chiller",
@@ -63,12 +63,8 @@ export const id = {
   },
   feed: {
     title: "Minum",
-    lede: "Botol atau menyusui.",
-    bottle: "Botol",
-    nursing: "Menyusui",
+    lede: "Jumlah dalam ml.",
     amount: "ml",
-    start: "Mulai",
-    stop: "Berhenti",
   },
   pump: {
     title: "Pompa",

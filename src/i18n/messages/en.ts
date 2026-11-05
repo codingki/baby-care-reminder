@@ -27,7 +27,7 @@ export const en = {
     diaper: "Diaper",
     diaperDetail: "Wet, dirty, mixed, or dry",
     feed: "Feed",
-    feedDetail: "Bottle in ml, or nursing",
+    feedDetail: "Amount in ml",
     pump: "Pump",
     pumpDetail: "Side and how long",
     chiller: "Chiller",
@@ -60,12 +60,8 @@ export const en = {
   },
   feed: {
     title: "Feed",
-    lede: "Bottle or nursing.",
-    bottle: "Bottle",
-    nursing: "Nursing",
+    lede: "Amount in ml.",
     amount: "ml",
-    start: "Start",
-    stop: "Stop",
   },
   pump: {
     title: "Pump",
