@@ -53,7 +53,9 @@ export function ChillerDetail({ id }: { id: string }) {
   if (state === "loading") {
     return (
       <Screen titleKey="chiller.detailTitle" ledeKey="chiller.detailLede" backHref="/chiller" showLater={false}>
-        <p className="text-sm text-muted">{t("chiller.loading")}</p>
+        <p className="text-sm text-muted" role="status" aria-live="polite">
+          {t("chiller.loading")}
+        </p>
       </Screen>
     );
   }

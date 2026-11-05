@@ -41,7 +41,9 @@ export default function ChillerPage() {
   return (
     <Screen titleKey="chiller.title" ledeKey="chiller.lede" showLater={false}>
       {state === "loading" && items.length === 0 ? (
-        <p className="text-sm text-muted">{t("chiller.loading")}</p>
+        <p className="text-sm text-muted" role="status" aria-live="polite">
+          {t("chiller.loading")}
+        </p>
       ) : null}
       {state === "error" && items.length === 0 ? (
         <p className="text-sm text-muted" role="alert">

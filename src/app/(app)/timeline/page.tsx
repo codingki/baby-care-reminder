@@ -5,6 +5,7 @@ import { Screen } from "@/components/screen";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
 import { loadFamilyContext } from "@/lib/family-context";
+import { loadMemberNames } from "@/lib/member-names";
 import { readQueue } from "@/lib/offline-queue";
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,6 +15,7 @@ type TimelineLog = {
   occurredAt: string;
   amountMl: number | null;
   diaperKind: string | null;
+  by: string | null;
 };
 
 function startOfDay() {
@@ -40,7 +42,7 @@ export default function TimelinePage() {
       const since = startOfDay().toISOString();
       const queued = readQueue()
         .filter((item) => item.kind === "log")
-        .map((item) => toLog(item.id, item.row))
+        .map((item) => toLog(item.id, item.row, null))
         .filter((log): log is TimelineLog => log !== null && log.occurredAt >= since);
 
       if (!context) {
@@ -50,12 +52,15 @@ export default function TimelinePage() {
       }
 
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("logs")
-        .select("id, kind, occurred_at, amount_ml, diaper_kind")
-        .eq("family_id", context.familyId)
-        .gte("occurred_at", since)
-        .order("occurred_at", { ascending: false });
+      const [{ data, error }, names] = await Promise.all([
+        supabase
+          .from("logs")
+          .select("id, kind, occurred_at, amount_ml, diaper_kind, logged_by")
+          .eq("family_id", context.familyId)
+          .gte("occurred_at", since)
+          .order("occurred_at", { ascending: false }),
+        loadMemberNames(context.familyId),
+      ]);
 
       if (error) {
         setLogs(queued);
@@ -65,12 +70,17 @@ export default function TimelinePage() {
 
       const remote = (data ?? [])
         .map((row) =>
-          toLog(String(row.id), {
-            kind: row.kind,
-            occurred_at: row.occurred_at,
-            amount_ml: row.amount_ml,
-            diaper_kind: row.diaper_kind,
-          }),
+          toLog(
+            String(row.id),
+            {
+              kind: row.kind,
+              occurred_at: row.occurred_at,
+              amount_ml: row.amount_ml,
+              diaper_kind: row.diaper_kind,
+              logged_by: row.logged_by,
+            },
+            names,
+          ),
         )
         .filter((log): log is TimelineLog => log !== null);
       const seen = new Set(remote.map((log) => log.id));
@@ -87,7 +97,11 @@ export default function TimelinePage() {
 
   return (
     <Screen titleKey="timeline.title" ledeKey="timeline.lede" backHref="/" showLater={false}>
-      {state === "loading" ? <p className="text-sm text-muted">{t("timeline.loading")}</p> : null}
+      {state === "loading" ? (
+        <p className="text-sm text-muted" role="status" aria-live="polite">
+          {t("timeline.loading")}
+        </p>
+      ) : null}
       {state === "error" ? (
         <p className="text-sm text-muted" role="alert">
           {t("timeline.error")}
@@ -119,6 +133,7 @@ export default function TimelinePage() {
               <li key={log.id} className="text-sm">
                 <span className="font-semibold">{label(log, t)}</span>
                 {log.amountMl ? <span> · {log.amountMl} ml</span> : null}
+                {log.by ? <span> · {log.by}</span> : null}
                 <span className="text-muted"> · {clock(log.occurredAt, locale)}</span>
               </li>
             ))}
@@ -129,16 +144,22 @@ export default function TimelinePage() {
   );
 }
 
-function toLog(id: string, row: Record<string, unknown>): TimelineLog | null {
+function toLog(
+  id: string,
+  row: Record<string, unknown>,
+  names: Record<string, string> | null,
+): TimelineLog | null {
   const kind = row.kind;
   const occurredAt = row.occurred_at;
   if (typeof kind !== "string" || typeof occurredAt !== "string") return null;
+  const loggedBy = typeof row.logged_by === "string" ? row.logged_by : null;
   return {
     id,
     kind,
     occurredAt,
     amountMl: typeof row.amount_ml === "number" ? row.amount_ml : null,
     diaperKind: typeof row.diaper_kind === "string" ? row.diaper_kind : null,
+    by: loggedBy && names ? names[loggedBy] ?? null : null,
   };
 }
 

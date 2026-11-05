@@ -8,6 +8,7 @@ import type { Locale } from "@/i18n/locales";
 import type { ChillerItem, OwnedPump } from "@/lib/device-care";
 import { matchGuideline, type FeedingGuideline } from "@/lib/feeding";
 import { formatSpan, nowMs } from "@/lib/relative-time";
+import { loadMemberNames } from "@/lib/member-names";
 import { createClient } from "@/lib/supabase/client";
 
 type ReminderRow = {
@@ -39,6 +40,8 @@ type LogRow = {
   occurred_at: string;
   amount_ml: number | null;
   diaper_kind: string | null;
+  logged_by: string | null;
+  by: string | null;
 };
 
 type BabyRow = {
@@ -81,6 +84,7 @@ export function HomeReminders() {
   const [now, setNow] = useState(nowMs);
   const [clockIds, setClockIds] = useState<ReadonlySet<string>>(new Set());
   const [live, setLive] = useState<LiveData | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready">("loading");
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(nowMs()), 30000);
@@ -92,7 +96,10 @@ export function HomeReminders() {
     void (async () => {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
-      if (!userId) return;
+      if (!userId) {
+        setStatus("ready");
+        return;
+      }
       const { data: membership } = await supabase
         .from("family_members")
         .select("family_id")
@@ -100,7 +107,10 @@ export function HomeReminders() {
         .limit(1)
         .maybeSingle();
       const familyId = membership?.family_id;
-      if (!familyId) return;
+      if (!familyId) {
+        setStatus("ready");
+        return;
+      }
       const [reminders, chiller, pumps, models, logs, babies, guidelines] = await Promise.all([
         supabase
           .from("reminders")
@@ -120,7 +130,7 @@ export function HomeReminders() {
         supabase.from("pump_models").select("id, model"),
         supabase
           .from("logs")
-          .select("id, kind, occurred_at, amount_ml, diaper_kind")
+          .select("id, kind, occurred_at, amount_ml, diaper_kind, logged_by")
           .eq("family_id", familyId)
           .order("occurred_at", { ascending: false })
           .limit(8),
@@ -134,16 +144,25 @@ export function HomeReminders() {
             "age_min_days, age_max_days, weight_min_grams, weight_max_grams, suggested_ml, interval_minutes",
           ),
       ]);
-      if (reminders.error || chiller.error) return;
+      if (reminders.error || chiller.error) {
+        setStatus("ready");
+        return;
+      }
+      const names = await loadMemberNames(familyId);
+      const logRows = ((logs.data ?? []) as Omit<LogRow, "by">[]).map((log) => ({
+        ...log,
+        by: log.logged_by ? names[log.logged_by] ?? null : null,
+      }));
       setLive({
         reminders: (reminders.data ?? []) as ReminderRow[],
         chiller: (chiller.data ?? []) as ChillerRow[],
         pumps: (pumps.data ?? []) as PumpRow[],
         models: (models.data ?? []) as ModelRow[],
-        logs: (logs.data ?? []) as LogRow[],
+        logs: logRows,
         babies: (babies.data ?? []) as BabyRow[],
         guidelines: (guidelines.data ?? []) as FeedingGuideline[],
       });
+      setStatus("ready");
     })();
   }, []);
 
@@ -154,6 +173,11 @@ export function HomeReminders() {
 
   return (
     <>
+      {status === "loading" ? (
+        <p className="text-sm text-muted" role="status" aria-live="polite">
+          {t("common.loading")}
+        </p>
+      ) : null}
       <NextUp
         locale={locale}
         now={now}
@@ -398,6 +422,7 @@ function Recent({ logs, locale }: { logs: LogRow[]; locale: Locale }) {
             <span className="font-semibold">{labelFor(log.kind, t)}</span>
             {log.amount_ml ? <span> · {log.amount_ml} ml</span> : null}
             {log.diaper_kind ? <span> · {log.diaper_kind}</span> : null}
+            {log.by ? <span> · {log.by}</span> : null}
             <span className="text-muted"> · {clockTime(log.occurred_at, locale)}</span>
           </li>
         ))}

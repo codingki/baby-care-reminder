@@ -70,7 +70,7 @@ function BottomNav({ pathname }: { pathname: string | null }) {
 
   return (
     <nav
-      aria-label={t("shell.brand")}
+      aria-label={t("shell.navLabel")}
       className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-line bg-card/95 backdrop-blur"
     >
       <ul className="grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { AlertChoices } from "@/components/alert-choices";
 import { LanguageSwitch } from "@/components/language-switch";
 import { MyPumps } from "@/components/my-pumps";
 import { ReminderSettings } from "@/components/reminder-settings";
@@ -31,6 +32,7 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm leading-6 text-muted">{t("settings.unitHint")}</p>
       </div>
       <ReminderSettings />
+      <AlertChoices />
       <SignOutButton />
     </section>
   );

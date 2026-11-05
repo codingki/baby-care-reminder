@@ -6,6 +6,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "categories": ["health", "lifestyle"],
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#5f7f6c",
