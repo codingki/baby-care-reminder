@@ -10,7 +10,7 @@ export const PUMP_CATALOG: readonly CatalogPump[] = [
   { id: "medela-freestyle-flex", brand: "Medela", model: "Freestyle Flex" },
   { id: "medela-swing-maxi", brand: "Medela", model: "Swing Maxi" },
   { id: "medela-solo", brand: "Medela", model: "Solo" },
-  { id: "medela-harmony", brand: "Medela", model: "Harmony (manual)" },
+  { id: "medela-harmony", brand: "Medela", model: "Harmony" },
   { id: "momcozy-s12-pro", brand: "Momcozy", model: "S12 Pro" },
   { id: "momcozy-s9-pro", brand: "Momcozy", model: "S9 Pro" },
   { id: "momcozy-m5", brand: "Momcozy", model: "M5" },

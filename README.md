@@ -43,17 +43,17 @@ Copy lives in `src/i18n/messages/en.ts` and `src/i18n/messages/id.ts`. The shell
 
 On a first visit the app follows `Accept-Language`. Indonesian (`id` or the legacy `in`) selects Bahasa Indonesia. Anything else, including an unsupported language, uses English.
 
-Choosing a language in **Settings** stores `bcr_locale` for one year on this device. That cookie wins over the browser language. The same choice has a home in `member_settings.language` (`en` or `id`). `member_settings.unit` stores the volume unit and defaults to `ml`, which is the only unit this phase allows. The settings screen reads the cookie today. Writing the row waits until family membership exists.
+Choosing a language in **Settings** stores `bcr_locale` for one year on this device. That cookie wins over the browser language. The same choice has a home in `member_settings.language` (`en` or `id`). Volume unit lives on `families.unit` and defaults to `ml`, with no check that forbids a later `oz`. The settings screen reads the cookie today. Writing the row waits until family membership exists.
 
 ## Database migration
 
-The schema is `supabase/migrations/20261105180018_phase0_foundation.sql`. It is not applied to the hosted database by this repo. `/bottles` and `/bottles/[id]` redirect to `/chiller`.
+The schema is `supabase/migrations/20261105180018_phase0_foundation.sql`, plus `supabase/migrations/20261105184540_family_unit_and_harmony_name.sql`. Neither file is applied to the hosted database by this repo. `/bottles` and `/bottles/[id]` redirect to `/chiller`. The follow-up moves `unit` onto `families` and renames the Medela seed from `Harmony (manual)` to `Harmony`.
 
 Tables:
 
 | Table | What it stores |
 | --- | --- |
-| `families` | A household, including `pump_parts_wash_by_hours` (default 24, allowed 1–24) |
+| `families` | A household, `pump_parts_wash_by_hours` (default 24, allowed 1–24), and `unit` (default `ml`, not limited to ml) |
 | `family_members` | Users and roles: owner, caregiver, viewer |
 | `babies` | Name, birth date, sex, weight in grams |
 | `invites` | Single-use invites that expire within 7 days |
@@ -63,7 +63,7 @@ Tables:
 | `chiller_items` | Milk or pump parts: location, `stored_at`, `expires_at`, optional `pump_id`, optional `volume_ml` |
 | `reminders` | One schedule row per baby and type. Each pump-parts chiller item adds a reminder due 30 minutes before `expires_at`, for owners and caregivers |
 | `push_subscriptions` | Browser push subscriptions for a later phase |
-| `member_settings` | Quiet hours, snooze, `language`, and `unit` (default `ml`) |
+| `member_settings` | Quiet hours, snooze, and `language`. Volume unit is on the family |
 
 Row-level security is on for every table. `anon` has no table grants. Signed-in users only reach families they belong to. Viewers can read family care data and cannot change it. Each person manages their own push subscription and settings. Invite acceptance is `public.accept_invite`, which calls a privileged function in the unexposed `private` schema.
 
