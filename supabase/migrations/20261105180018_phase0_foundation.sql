@@ -34,7 +34,7 @@ create type public.diaper_kind as enum ('wet', 'dirty', 'mixed', 'dry');
 
 create type public.feed_kind as enum ('bottle', 'nursing');
 
-create type public.side as enum ('left', 'right', 'both');
+create type public.pump_side as enum ('left', 'right', 'both');
 
 create type public.storage_location as enum (
   'room',
@@ -144,7 +144,7 @@ create table public.logs (
   diaper_kind public.diaper_kind,
   feed_kind public.feed_kind,
   amount_ml integer,
-  side public.side,
+  pump_side public.pump_side,
   duration_seconds integer,
   started_at timestamptz,
   ended_at timestamptz,
@@ -167,7 +167,7 @@ create table public.logs (
       and diaper_kind is not null
       and feed_kind is null
       and amount_ml is null
-      and side is null
+      and pump_side is null
       and duration_seconds is null
       and started_at is null
       and ended_at is null
@@ -178,7 +178,7 @@ create table public.logs (
       and amount_ml is not null
       and amount_ml > 0
       and diaper_kind is null
-      and side is null
+      and pump_side is null
       and duration_seconds is null
       and started_at is null
       and ended_at is null
@@ -188,7 +188,7 @@ create table public.logs (
       and feed_kind = 'nursing'
       and amount_ml is null
       and diaper_kind is null
-      and side is not null
+      and pump_side is null
       and duration_seconds is not null
       and duration_seconds > 0
     )
@@ -207,10 +207,10 @@ comment on table public.logs is
   'Diaper, feed (bottle in ml, or nursing), and pump events for a baby.';
 comment on column public.logs.amount_ml is
   'Bottle feed or pump volume in millilitres. Null for nursing.';
-comment on column public.logs.side is
-  'Left, right, or both. Used by nursing feeds and pump sessions.';
+comment on column public.logs.pump_side is
+  'Left, right, or both for a pump session. Nursing feeds do not store a side.';
 comment on column public.logs.duration_seconds is
-  'Nursing or pump length in seconds.';
+  'Nursing or pump length in seconds. Nursing is a single start/stop duration.';
 comment on column public.logs.started_at is
   'Optional nursing start. Set together with ended_at.';
 comment on column public.logs.ended_at is
