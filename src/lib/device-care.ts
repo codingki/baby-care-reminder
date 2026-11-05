@@ -46,7 +46,7 @@ const listeners = new Set<() => void>();
 
 export const emptyCareState: CareState = {
   pumps: [],
-  washByHours: 12,
+  washByHours: 24,
   partsDisclaimerSeen: false,
   items: [],
 };
@@ -55,7 +55,7 @@ let cachedState: CareState = emptyCareState;
 let cacheLoaded = false;
 
 export function clampWashByHours(value: number): number {
-  if (!Number.isFinite(value)) return 12;
+  if (!Number.isFinite(value)) return 24;
   return Math.min(24, Math.max(1, Math.round(value)));
 }
 

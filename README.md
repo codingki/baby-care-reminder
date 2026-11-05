@@ -53,7 +53,7 @@ Tables:
 
 | Table | What it stores |
 | --- | --- |
-| `families` | A household, including `pump_parts_wash_by_hours` (default 12, allowed 1–24) |
+| `families` | A household, including `pump_parts_wash_by_hours` (default 24, allowed 1–24) |
 | `family_members` | Users and roles: owner, caregiver, viewer |
 | `babies` | Name, birth date, sex, weight in grams |
 | `invites` | Single-use invites that expire within 7 days |

@@ -59,7 +59,7 @@ create table public.families (
   name text not null,
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
-  pump_parts_wash_by_hours integer not null default 12,
+  pump_parts_wash_by_hours integer not null default 24,
   constraint families_name_not_blank check (char_length(btrim(name)) > 0),
   constraint families_wash_by_hours_range check (
     pump_parts_wash_by_hours between 1 and 24
@@ -69,7 +69,7 @@ create table public.families (
 comment on table public.families is
   'A household that shares one or more babies.';
 comment on column public.families.pump_parts_wash_by_hours is
-  'Hours pump parts may stay in the chiller before they must be washed. Default 12, range 1 to 24.';
+  'Hours pump parts may stay in the chiller before they must be washed. Default 24, range 1 to 24.';
 
 create table public.family_members (
   id uuid primary key default gen_random_uuid(),
