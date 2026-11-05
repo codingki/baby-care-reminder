@@ -11,12 +11,11 @@ import {
   addChillerItems,
   CHILLER_LOCATIONS,
   defaultPumpId,
+  markPumpUsed,
   partsExpiresAt,
   pumpLabel,
   type ChillerLocation,
 } from "@/lib/device-care";
-
-const sides = ["left", "right", "both"] as const;
 
 function formatWhen(iso: string, locale: Locale) {
   return new Date(iso).toLocaleString(locale === "id" ? "id-ID" : "en-US", {
@@ -38,7 +37,7 @@ export default function PumpPage() {
 function PumpLog() {
   const { locale, t } = useI18n();
   const care = useCareStore();
-  const [side, setSide] = useState<(typeof sides)[number] | null>(null);
+  const [pumpedMl, setPumpedMl] = useState("");
   const [minutes, setMinutes] = useState("");
   const [logged, setLogged] = useState(false);
   const [storeParts, setStoreParts] = useState(false);
@@ -53,6 +52,14 @@ function PumpLog() {
     pumpId && care.pumps.some((pump) => pump.id === pumpId) ? pumpId : fallbackPumpId;
   const selectedPump = care.pumps.find((pump) => pump.id === activePumpId) ?? null;
   const partsTime = formatWhen(partsExpiresAt(new Date(), care.washByHours).toISOString(), locale);
+  const pumpedAmount = Number(pumpedMl);
+  const sessionMinutes = Number(minutes);
+  const canLog =
+    Number.isFinite(pumpedAmount) &&
+    pumpedAmount > 0 &&
+    Number.isFinite(sessionMinutes) &&
+    sessionMinutes > 0 &&
+    Boolean(selectedPump);
   const canStoreParts = storeParts && Boolean(selectedPump);
   const canConfirm = canStoreParts || saveMilk;
 
@@ -70,28 +77,26 @@ function PumpLog() {
     setAddedIds(created.map((item) => item.id));
   }
 
+  function logPump() {
+    if (!selectedPump || !canLog) return;
+    markPumpUsed(selectedPump.id);
+    setLogged(true);
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-muted">{t("pump.title")}</h2>
-        <div className="grid grid-cols-3 gap-2">
-          {sides.map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={side === option}
-              onClick={() => setSide(option)}
-              className={`min-h-12 rounded-2xl px-2 text-sm font-semibold ${
-                side === option
-                  ? "bg-accent text-accent-foreground"
-                  : "border border-line bg-card"
-              }`}
-            >
-              {t(`pump.${option}`)}
-            </button>
-          ))}
-        </div>
-      </div>
+      <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pumped-ml">
+        {t("pump.amount")}
+        <input
+          id="pumped-ml"
+          type="number"
+          inputMode="decimal"
+          min={1}
+          value={pumpedMl}
+          onChange={(event) => setPumpedMl(event.target.value)}
+          className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
+        />
+      </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pump-minutes">
         {t("pump.duration")}
         <input
@@ -104,6 +109,30 @@ function PumpLog() {
           className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
         />
       </label>
+      {care.pumps.length === 0 ? (
+        <p className="text-sm leading-6">
+          {t("pump.noPumps")}{" "}
+          <Link href="/settings" className="font-semibold text-accent">
+            {t("pump.addPumps")}
+          </Link>
+        </p>
+      ) : (
+        <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="session-pump">
+          {t("pump.pickPump")}
+          <select
+            id="session-pump"
+            value={selectedPump?.id ?? ""}
+            onChange={(event) => setPumpId(event.target.value)}
+            className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
+          >
+            {care.pumps.map((pump) => (
+              <option key={pump.id} value={pump.id}>
+                {pumpLabel(pump)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {logged ? (
         <div className="flex flex-col gap-4 rounded-3xl border border-line bg-card p-4">
           <p className="text-sm leading-6">{t("pump.logged")}</p>
@@ -113,33 +142,7 @@ function PumpLog() {
             onChange={setStoreParts}
           />
           {storeParts ? (
-            care.pumps.length === 0 ? (
-              <p className="text-sm leading-6">
-                {t("pump.noPumps")}{" "}
-                <Link href="/settings" className="font-semibold text-accent">
-                  {t("pump.addPumps")}
-                </Link>
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="owned-pump">
-                  {t("pump.pickPump")}
-                  <select
-                    id="owned-pump"
-                    value={selectedPump?.id ?? ""}
-                    onChange={(event) => setPumpId(event.target.value)}
-                    className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
-                  >
-                    {care.pumps.map((pump) => (
-                      <option key={pump.id} value={pump.id}>
-                        {pumpLabel(pump)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <PartsDisclaimer time={partsTime} seen={care.partsDisclaimerSeen} />
-              </div>
-            )
+            <PartsDisclaimer time={partsTime} seen={care.partsDisclaimerSeen} />
           ) : null}
           <Toggle label={t("pump.saveMilk")} checked={saveMilk} onChange={setSaveMilk} />
           {saveMilk ? (
@@ -196,8 +199,9 @@ function PumpLog() {
       ) : (
         <button
           type="button"
-          onClick={() => setLogged(true)}
-          className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground"
+          onClick={logPump}
+          disabled={!canLog}
+          className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
         >
           {t("pump.log")}
         </button>

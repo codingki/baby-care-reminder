@@ -57,7 +57,7 @@ Tables:
 | `family_members` | Users and roles: owner, caregiver, viewer |
 | `babies` | Name, birth date, sex, weight in grams |
 | `invites` | Single-use invites that expire within 7 days |
-| `logs` | Diaper, bottle feed in ml, and pump events |
+| `logs` | Diaper, bottle feed in ml, and pump (one total ml, duration, and the owned pump). No side |
 | `pump_models` | Catalog of brands and models. Any signed-in user can read it |
 | `family_pumps` | Pumps a family owns, including a custom name and nickname |
 | `chiller_items` | Milk or pump parts: location, `stored_at`, `expires_at`, optional `pump_id`, optional `volume_ml` |

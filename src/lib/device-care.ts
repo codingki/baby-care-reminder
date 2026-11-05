@@ -149,6 +149,17 @@ export function getCareState(): CareState {
   return cachedState;
 }
 
+export function markPumpUsed(id: string) {
+  const current = readCare();
+  const usedAt = new Date().toISOString();
+  writeCare({
+    ...current,
+    pumps: current.pumps.map((pump) =>
+      pump.id === id ? { ...pump, lastUsedAt: usedAt } : pump,
+    ),
+  });
+}
+
 export function setWashByHours(hours: number) {
   const current = readCare();
   writeCare({ ...current, washByHours: clampWashByHours(hours) });

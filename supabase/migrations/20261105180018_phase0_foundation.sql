@@ -34,8 +34,6 @@ create type public.diaper_kind as enum ('wet', 'dirty', 'mixed', 'dry');
 
 create type public.feed_kind as enum ('bottle');
 
-create type public.pump_side as enum ('left', 'right', 'both');
-
 create type public.storage_location as enum (
   'room',
   'fridge',
@@ -144,7 +142,6 @@ create table public.logs (
   diaper_kind public.diaper_kind,
   feed_kind public.feed_kind,
   amount_ml integer,
-  pump_side public.pump_side,
   duration_seconds integer,
   created_at timestamptz not null default now(),
   constraint logs_amount_nonnegative check (amount_ml is null or amount_ml >= 0),
@@ -157,7 +154,6 @@ create table public.logs (
       and diaper_kind is not null
       and feed_kind is null
       and amount_ml is null
-      and pump_side is null
       and duration_seconds is null
     )
     or (
@@ -166,14 +162,16 @@ create table public.logs (
       and amount_ml is not null
       and amount_ml > 0
       and diaper_kind is null
-      and pump_side is null
       and duration_seconds is null
     )
     or (
       kind = 'pump'
       and diaper_kind is null
       and feed_kind is null
-      and (amount_ml is null or amount_ml > 0)
+      and amount_ml is not null
+      and amount_ml > 0
+      and duration_seconds is not null
+      and duration_seconds > 0
     )
   )
 );
@@ -181,11 +179,9 @@ create table public.logs (
 comment on table public.logs is
   'Diaper, bottle feed in millilitres, and pump events for a baby.';
 comment on column public.logs.amount_ml is
-  'Bottle feed or pump volume in millilitres.';
-comment on column public.logs.pump_side is
-  'Left, right, or both for a pump session.';
+  'Bottle volume, or the single total pumped volume, in millilitres.';
 comment on column public.logs.duration_seconds is
-  'Pump length in seconds.';
+  'How long the pump session lasted, in seconds.';
 
 create index logs_baby_occurred_idx on public.logs (baby_id, occurred_at desc);
 create index logs_family_id_idx on public.logs (family_id);
@@ -252,6 +248,47 @@ comment on column public.family_pumps.last_used_at is
 create index family_pumps_family_id_idx on public.family_pumps (family_id);
 create index family_pumps_last_used_idx
   on public.family_pumps (family_id, last_used_at desc nulls last);
+
+alter table public.logs
+  add column pump_id uuid references public.family_pumps (id) on delete set null;
+
+alter table public.logs drop constraint logs_kind_fields;
+
+alter table public.logs
+  add constraint logs_kind_fields check (
+    (
+      kind = 'diaper'
+      and diaper_kind is not null
+      and feed_kind is null
+      and amount_ml is null
+      and duration_seconds is null
+      and pump_id is null
+    )
+    or (
+      kind = 'feed'
+      and feed_kind = 'bottle'
+      and amount_ml is not null
+      and amount_ml > 0
+      and diaper_kind is null
+      and duration_seconds is null
+      and pump_id is null
+    )
+    or (
+      kind = 'pump'
+      and diaper_kind is null
+      and feed_kind is null
+      and amount_ml is not null
+      and amount_ml > 0
+      and duration_seconds is not null
+      and duration_seconds > 0
+      and pump_id is not null
+    )
+  );
+
+comment on column public.logs.pump_id is
+  'The owned pump used for a pump log. One total amount, no per-side split.';
+
+create index logs_pump_id_idx on public.logs (pump_id);
 
 create table public.chiller_items (
   id uuid primary key default gen_random_uuid(),
@@ -582,6 +619,7 @@ set search_path = ''
 as $$
 declare
   baby_family uuid;
+  pump_family uuid;
 begin
   baby_family := private.baby_family_id(new.baby_id);
   if baby_family is null then
@@ -589,6 +627,17 @@ begin
   end if;
 
   new.family_id := baby_family;
+
+  if new.pump_id is not null then
+    select pump.family_id
+    into pump_family
+    from public.family_pumps as pump
+    where pump.id = new.pump_id;
+
+    if pump_family is distinct from new.family_id then
+      raise exception 'invalid pump';
+    end if;
+  end if;
 
   if tg_op = 'UPDATE' then
     new.logged_by := old.logged_by;
