@@ -53,13 +53,12 @@ function PumpLog() {
   const selectedPump = care.pumps.find((pump) => pump.id === activePumpId) ?? null;
   const partsTime = formatWhen(partsExpiresAt(new Date(), care.washByHours).toISOString(), locale);
   const pumpedAmount = Number(pumpedMl);
+  const minutesBlank = minutes.trim() === "";
   const sessionMinutes = Number(minutes);
+  const minutesOk =
+    minutesBlank || (Number.isFinite(sessionMinutes) && sessionMinutes > 0);
   const canLog =
-    Number.isFinite(pumpedAmount) &&
-    pumpedAmount > 0 &&
-    Number.isFinite(sessionMinutes) &&
-    sessionMinutes > 0 &&
-    Boolean(selectedPump);
+    Number.isFinite(pumpedAmount) && pumpedAmount > 0 && minutesOk && Boolean(selectedPump);
   const canStoreParts = storeParts && Boolean(selectedPump);
   const canConfirm = canStoreParts || saveMilk;
 
