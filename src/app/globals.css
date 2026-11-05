@@ -19,7 +19,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-muted: var(--muted);
   --color-line: var(--line);
-  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 body {
