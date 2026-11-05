@@ -30,8 +30,6 @@ export const en = {
     feedDetail: "Amount in ml",
     pump: "Pump",
     pumpDetail: "Total ml and time",
-    chiller: "Chiller",
-    chillerDetail: "Milk and pump parts, with a countdown",
     profile: "Baby profile",
     profileDetail: "Name, birth date, sex, and weight",
   },

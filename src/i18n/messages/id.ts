@@ -33,8 +33,6 @@ export const id = {
     feedDetail: "Jumlah dalam ml",
     pump: "Pompa",
     pumpDetail: "Total ml dan waktu",
-    chiller: "Chiller",
-    chillerDetail: "ASI dan bagian pompa, dengan hitung mundur",
     profile: "Profil bayi",
     profileDetail: "Nama, tanggal lahir, jenis kelamin, dan berat",
   },
