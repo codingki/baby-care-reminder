@@ -10,25 +10,21 @@ const actions = [
     href: "/log/diaper",
     titleKey: "home.diaper",
     detailKey: "home.diaperDetail",
-    tone: "bg-accent text-accent-foreground",
   },
   {
     href: "/log/feed",
     titleKey: "home.feed",
     detailKey: "home.feedDetail",
-    tone: "bg-clay text-white",
   },
   {
     href: "/log/pump",
     titleKey: "home.pump",
     detailKey: "home.pumpDetail",
-    tone: "bg-[#3d5a80] text-white",
   },
 ] as const satisfies ReadonlyArray<{
   href: string;
   titleKey: MessageKey;
   detailKey: MessageKey;
-  tone: string;
 }>;
 
 export default function HomePage() {
@@ -49,9 +45,9 @@ export default function HomePage() {
           <li key={action.href}>
             <Link
               href={action.href}
-              className={`flex min-h-24 flex-col justify-center rounded-3xl px-5 py-4 ${action.tone}`}
+              className="flex min-h-24 flex-col justify-center rounded-3xl border border-line bg-card px-5 py-4"
             >
-              <span className="text-xl font-semibold">{t(action.titleKey)}</span>
+              <span className="text-xl font-semibold text-accent">{t(action.titleKey)}</span>
               <span className="mt-1 text-sm opacity-90">{t(action.detailKey)}</span>
             </Link>
           </li>

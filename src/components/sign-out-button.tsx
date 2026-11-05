@@ -36,7 +36,7 @@ export function SignOutButton() {
         {pending ? t("settings.signingOut") : t("settings.signOut")}
       </button>
       {message ? (
-        <p className="text-sm text-clay" role="alert">
+        <p className="text-sm text-foreground" role="alert">
           {message}
         </p>
       ) : null}

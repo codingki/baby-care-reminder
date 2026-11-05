@@ -42,7 +42,7 @@ export function MyPumps() {
               <button
                 type="button"
                 onClick={() => removeOwnedPump(pump.id)}
-                className="min-h-11 rounded-full px-3 text-sm font-semibold text-clay"
+                className="min-h-11 rounded-full px-3 text-sm font-semibold text-muted"
               >
                 {t("settings.removePump")}
               </button>

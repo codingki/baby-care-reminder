@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Geist } from "next/font/google";
+import { Nunito } from "next/font/google";
 import { InlineScript } from "@/components/inline-script";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { getLocale } from "@/i18n/get-locale";
@@ -8,9 +8,9 @@ import { getMessages } from "@/i18n/get-messages";
 import { I18nProvider } from "@/i18n/provider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const nunito = Nunito({
+  variable: "--font-nunito",
+  subsets: ["latin", "latin-ext"],
 });
 
 export const metadata: Metadata = {
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f6e6b",
+  themeColor: "#5f7f6c",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -45,9 +45,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full bg-page text-foreground antialiased">
-        <Suspense fallback={<div className="min-h-dvh bg-page" aria-busy="true" />}>
+    <html lang="en" suppressHydrationWarning className={`${nunito.variable} h-full antialiased`}>
+      <body className="min-h-full bg-background font-sans text-foreground antialiased">
+        <Suspense fallback={<div className="min-h-dvh bg-background" aria-busy="true" />}>
           <LocalizedApp>{children}</LocalizedApp>
         </Suspense>
         <ServiceWorkerRegister />

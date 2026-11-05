@@ -227,7 +227,7 @@ function Toggle({
         role="switch"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-6 w-11 accent-[#0f6e6b]"
+        className="h-6 w-11 accent-[#5f7f6c]"
       />
     </label>
   );
