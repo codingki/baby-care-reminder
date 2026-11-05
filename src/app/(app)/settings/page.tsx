@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { LanguageSwitch } from "@/components/language-switch";
 import { MyPumps } from "@/components/my-pumps";
+import { ReminderSettings } from "@/components/reminder-settings";
 import { SignOutButton } from "@/components/sign-out-button";
 import { WashByHours } from "@/components/wash-by-hours";
 import { useI18n } from "@/i18n/provider";
@@ -29,14 +30,7 @@ export default function SettingsPage() {
         <p className="mt-2 text-base font-semibold">{t("settings.unitValue")}</p>
         <p className="mt-1 text-sm leading-6 text-muted">{t("settings.unitHint")}</p>
       </div>
-      <div className="rounded-3xl border border-line bg-card p-4">
-        <h2 className="text-sm font-semibold">{t("settings.quietHours")}</h2>
-        <p className="mt-1 text-sm leading-6 text-muted">{t("settings.quietHoursDetail")}</p>
-      </div>
-      <div className="rounded-3xl border border-line bg-card p-4">
-        <h2 className="text-sm font-semibold">{t("settings.snooze")}</h2>
-        <p className="mt-1 text-sm leading-6 text-muted">{t("settings.snoozeDetail")}</p>
-      </div>
+      <ReminderSettings />
       <SignOutButton />
     </section>
   );
