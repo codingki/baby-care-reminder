@@ -9,11 +9,13 @@ export function Screen({
   titleKey,
   ledeKey,
   backHref,
+  showLater = true,
   children,
 }: {
   titleKey: MessageKey;
   ledeKey: MessageKey;
   backHref?: string;
+  showLater?: boolean;
   children?: React.ReactNode;
 }) {
   const { locale, t } = useI18n();
@@ -34,9 +36,11 @@ export function Screen({
         <p className="text-base leading-6 text-muted">{t(ledeKey)}</p>
       </header>
       {children}
-      <p className="rounded-2xl border border-dashed border-line bg-card px-4 py-3 text-sm leading-6 text-muted">
-        {t("common.later")}
-      </p>
+      {showLater ? (
+        <p className="rounded-2xl border border-dashed border-line bg-card px-4 py-3 text-sm leading-6 text-muted">
+          {t("common.later")}
+        </p>
+      ) : null}
     </section>
   );
 }

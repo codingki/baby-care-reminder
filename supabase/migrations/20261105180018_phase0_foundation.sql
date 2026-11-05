@@ -44,7 +44,11 @@ create type public.storage_location as enum (
   'thawed'
 );
 
-create type public.reminder_type as enum ('diaper', 'feed', 'pump');
+create type public.chiller_item_type as enum ('milk', 'pump_parts');
+
+create type public.reminder_type as enum ('diaper', 'feed', 'pump', 'pump_parts');
+
+create type public.reminder_audience as enum ('family', 'caregivers');
 
 -- ---------------------------------------------------------------------------
 -- Tables
@@ -55,11 +59,17 @@ create table public.families (
   name text not null,
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
-  constraint families_name_not_blank check (char_length(btrim(name)) > 0)
+  pump_parts_wash_by_hours integer not null default 12,
+  constraint families_name_not_blank check (char_length(btrim(name)) > 0),
+  constraint families_wash_by_hours_range check (
+    pump_parts_wash_by_hours between 1 and 24
+  )
 );
 
 comment on table public.families is
   'A household that shares one or more babies.';
+comment on column public.families.pump_parts_wash_by_hours is
+  'Hours pump parts may stay in the chiller before they must be washed. Default 12, range 1 to 24.';
 
 create table public.family_members (
   id uuid primary key default gen_random_uuid(),
@@ -174,28 +184,107 @@ comment on column public.logs.amount_ml is 'Feed or pump volume in millilitres.'
 create index logs_baby_occurred_idx on public.logs (baby_id, occurred_at desc);
 create index logs_family_id_idx on public.logs (family_id);
 
-create table public.bottles (
+create table public.pump_models (
+  id uuid primary key default gen_random_uuid(),
+  brand text not null,
+  model text not null,
+  sort_order integer not null,
+  constraint pump_models_brand_model_key unique (brand, model),
+  constraint pump_models_brand_not_blank check (char_length(btrim(brand)) > 0),
+  constraint pump_models_model_not_blank check (char_length(btrim(model)) > 0)
+);
+
+comment on table public.pump_models is
+  'Catalog of pump brands and models. Readable by any signed-in user.';
+
+insert into public.pump_models (brand, model, sort_order)
+values
+  ('Medela', 'Pump In Style MaxFlow', 10),
+  ('Medela', 'Freestyle Flex', 20),
+  ('Medela', 'Swing Maxi', 30),
+  ('Medela', 'Solo', 40),
+  ('Medela', 'Harmony (manual)', 50),
+  ('Momcozy', 'S12 Pro', 60),
+  ('Momcozy', 'S9 Pro', 70),
+  ('Momcozy', 'M5', 80),
+  ('Momcozy', 'M9', 90),
+  ('Momcozy', 'V1 Pro', 100),
+  ('Momcozy', 'V2 Pro', 110),
+  ('Momcozy', 'Air 1', 120);
+
+create table public.family_pumps (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references public.families (id) on delete cascade,
+  pump_model_id uuid references public.pump_models (id) on delete restrict,
+  custom_name text,
+  nickname text,
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz,
+  constraint family_pumps_identity check (
+    (
+      pump_model_id is not null
+      and custom_name is null
+    )
+    or (
+      pump_model_id is null
+      and custom_name is not null
+      and char_length(btrim(custom_name)) > 0
+    )
+  ),
+  constraint family_pumps_nickname check (
+    nickname is null or char_length(btrim(nickname)) > 0
+  )
+);
+
+comment on table public.family_pumps is
+  'Pumps a family owns. pump_model_id is null when custom_name is a custom pump.';
+comment on column public.family_pumps.custom_name is
+  'Set only for a custom pump that is not in pump_models.';
+comment on column public.family_pumps.last_used_at is
+  'Updated when pump parts from this pump are stored in the chiller.';
+
+create index family_pumps_family_id_idx on public.family_pumps (family_id);
+create index family_pumps_last_used_idx
+  on public.family_pumps (family_id, last_used_at desc nulls last);
+
+create table public.chiller_items (
   id uuid primary key default gen_random_uuid(),
   baby_id uuid not null references public.babies (id) on delete cascade,
   family_id uuid not null references public.families (id) on delete cascade,
-  amount_ml integer not null,
-  storage_location public.storage_location not null,
+  type public.chiller_item_type not null,
+  location public.storage_location not null,
   stored_at timestamptz not null default now(),
   expires_at timestamptz not null,
-  consumed_at timestamptz,
+  pump_id uuid references public.family_pumps (id) on delete set null,
+  volume_ml integer,
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
-  constraint bottles_amount_positive check (amount_ml > 0),
-  constraint bottles_expiry_after_storage check (expires_at > stored_at)
+  constraint chiller_items_expiry_after_storage check (expires_at > stored_at),
+  constraint chiller_items_volume check (
+    (
+      type = 'milk'
+      and (volume_ml is null or volume_ml > 0)
+    )
+    or (
+      type = 'pump_parts'
+      and volume_ml is null
+    )
+  )
 );
 
-comment on table public.bottles is
-  'Pumped-milk bottles and their storage countdown.';
-comment on column public.bottles.storage_location is
+comment on table public.chiller_items is
+  'Chiller contents: milk or pump parts, with a storage countdown.';
+comment on column public.chiller_items.location is
   'room, fridge, freezer, cooler, or thawed.';
+comment on column public.chiller_items.volume_ml is
+  'Milk volume in millilitres. Null for pump parts, and optional for milk.';
+comment on column public.chiller_items.pump_id is
+  'Owned pump whose parts are chilling. Null for milk, and optional if the pump was removed.';
 
-create index bottles_baby_expires_idx on public.bottles (baby_id, expires_at);
-create index bottles_family_id_idx on public.bottles (family_id);
+create index chiller_items_baby_expires_idx
+  on public.chiller_items (baby_id, expires_at);
+create index chiller_items_family_id_idx on public.chiller_items (family_id);
+create index chiller_items_pump_id_idx on public.chiller_items (pump_id);
 
 create table public.reminders (
   id uuid primary key default gen_random_uuid(),
@@ -204,12 +293,34 @@ create table public.reminders (
   reminder_type public.reminder_type not null,
   next_due_at timestamptz not null,
   enabled boolean not null default true,
+  audience public.reminder_audience not null default 'family',
+  chiller_item_id uuid references public.chiller_items (id) on delete cascade,
   updated_at timestamptz not null default now(),
-  constraint reminders_baby_type_key unique (baby_id, reminder_type)
+  constraint reminders_shape check (
+    (
+      reminder_type = 'pump_parts'
+      and chiller_item_id is not null
+      and audience = 'caregivers'
+    )
+    or (
+      reminder_type <> 'pump_parts'
+      and chiller_item_id is null
+    )
+  )
 );
 
 comment on table public.reminders is
-  'One schedule row per baby and reminder type.';
+  'Schedule rows are one per baby and type. A pump-parts chiller item adds its own reminder, due shortly before expires_at, for every owner and caregiver.';
+comment on column public.reminders.audience is
+  'caregivers notifies owners and caregivers. family includes every member.';
+
+create unique index reminders_schedule_key
+  on public.reminders (baby_id, reminder_type)
+  where chiller_item_id is null;
+
+create unique index reminders_chiller_item_key
+  on public.reminders (chiller_item_id)
+  where chiller_item_id is not null;
 
 create index reminders_family_id_idx on public.reminders (family_id);
 
@@ -273,7 +384,7 @@ comment on table public.member_settings is
 comment on column public.member_settings.language is
   'UI language for this member: en (English) or id (Bahasa Indonesia). Defaults to en.';
 comment on column public.member_settings.unit is
-  'Volume unit for feeds and bottles. Defaults to ml. Phase 0 allows ml only.';
+  'Volume unit for feeds and milk in the chiller. Defaults to ml. Phase 0 allows ml only.';
 
 create index member_settings_user_id_idx on public.member_settings (user_id);
 
@@ -391,6 +502,9 @@ as $$
 begin
   new.created_by := old.created_by;
   new.created_at := old.created_at;
+  if not private.is_family_owner(old.id) then
+    new.name := old.name;
+  end if;
   return new;
 end;
 $$;
@@ -484,13 +598,33 @@ before insert or update on public.logs
 for each row
 execute function private.prepare_log();
 
-create or replace function private.prepare_bottle()
+create or replace function private.prepare_family_pump()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE' then
+    new.family_id := old.family_id;
+    new.created_at := old.created_at;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger family_pumps_prepare
+before insert or update on public.family_pumps
+for each row
+execute function private.prepare_family_pump();
+
+create or replace function private.prepare_chiller_item()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 declare
   baby_family uuid;
+  pump_family uuid;
 begin
   baby_family := private.baby_family_id(new.baby_id);
   if baby_family is null then
@@ -498,6 +632,17 @@ begin
   end if;
 
   new.family_id := baby_family;
+
+  if new.pump_id is not null then
+    select pump.family_id
+    into pump_family
+    from public.family_pumps as pump
+    where pump.id = new.pump_id;
+
+    if pump_family is distinct from new.family_id then
+      raise exception 'invalid pump';
+    end if;
+  end if;
 
   if tg_op = 'UPDATE' then
     new.created_by := old.created_by;
@@ -508,10 +653,70 @@ begin
 end;
 $$;
 
-create trigger bottles_prepare
-before insert or update on public.bottles
+create trigger chiller_items_prepare
+before insert or update on public.chiller_items
 for each row
-execute function private.prepare_bottle();
+execute function private.prepare_chiller_item();
+
+-- One reminder per pump-parts item, due 30 minutes before it expires,
+-- for owners and caregivers. Milk items do not create this reminder.
+create or replace function private.sync_pump_parts_reminder()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  due_at timestamptz;
+begin
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+
+  if new.type <> 'pump_parts' then
+    delete from public.reminders
+    where chiller_item_id = new.id;
+    return new;
+  end if;
+
+  due_at := greatest(new.stored_at, new.expires_at - interval '30 minutes');
+
+  insert into public.reminders (
+    baby_id,
+    family_id,
+    reminder_type,
+    next_due_at,
+    audience,
+    chiller_item_id
+  )
+  values (
+    new.baby_id,
+    new.family_id,
+    'pump_parts',
+    due_at,
+    'caregivers',
+    new.id
+  )
+  on conflict (chiller_item_id) where chiller_item_id is not null
+  do update
+    set
+      next_due_at = excluded.next_due_at,
+      updated_at = now();
+
+  if new.pump_id is not null then
+    update public.family_pumps
+    set last_used_at = new.stored_at
+    where id = new.pump_id
+      and (last_used_at is null or last_used_at < new.stored_at);
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger chiller_items_sync_reminder
+after insert or update on public.chiller_items
+for each row
+execute function private.sync_pump_parts_reminder();
 
 create or replace function private.prepare_reminder()
 returns trigger
@@ -524,6 +729,8 @@ begin
   if tg_op = 'UPDATE' then
     new.baby_id := old.baby_id;
     new.reminder_type := old.reminder_type;
+    new.chiller_item_id := old.chiller_item_id;
+    new.audience := old.audience;
   end if;
 
   baby_family := private.baby_family_id(new.baby_id);
@@ -655,7 +862,9 @@ revoke all on function private.lock_family_creator() from public, anon;
 revoke all on function private.prepare_baby() from public, anon;
 revoke all on function private.prepare_invite() from public, anon;
 revoke all on function private.prepare_log() from public, anon;
-revoke all on function private.prepare_bottle() from public, anon;
+revoke all on function private.prepare_family_pump() from public, anon;
+revoke all on function private.prepare_chiller_item() from public, anon;
+revoke all on function private.sync_pump_parts_reminder() from public, anon;
 revoke all on function private.prepare_reminder() from public, anon;
 revoke all on function private.lock_member_settings_identity() from public, anon;
 revoke all on function private.accept_invite(text) from public, anon;
@@ -672,7 +881,9 @@ grant execute on function private.lock_family_creator() to authenticated;
 grant execute on function private.prepare_baby() to authenticated;
 grant execute on function private.prepare_invite() to authenticated;
 grant execute on function private.prepare_log() to authenticated;
-grant execute on function private.prepare_bottle() to authenticated;
+grant execute on function private.prepare_family_pump() to authenticated;
+grant execute on function private.prepare_chiller_item() to authenticated;
+grant execute on function private.sync_pump_parts_reminder() to authenticated;
 grant execute on function private.prepare_reminder() to authenticated;
 grant execute on function private.lock_member_settings_identity() to authenticated;
 grant execute on function private.accept_invite(text) to authenticated;
@@ -687,7 +898,9 @@ alter table public.family_members enable row level security;
 alter table public.babies enable row level security;
 alter table public.invites enable row level security;
 alter table public.logs enable row level security;
-alter table public.bottles enable row level security;
+alter table public.pump_models enable row level security;
+alter table public.family_pumps enable row level security;
+alter table public.chiller_items enable row level security;
 alter table public.reminders enable row level security;
 alter table public.push_subscriptions enable row level security;
 alter table public.member_settings enable row level security;
@@ -708,8 +921,8 @@ create policy families_update
 on public.families
 for update
 to authenticated
-using ((select private.is_family_owner(id)))
-with check ((select private.is_family_owner(id)));
+using ((select private.can_write_family(id)))
+with check ((select private.can_write_family(id)));
 
 create policy families_delete
 on public.families
@@ -839,14 +1052,45 @@ for delete
 to authenticated
 using ((select private.can_write_family(family_id)));
 
-create policy bottles_select
-on public.bottles
+create policy pump_models_select
+on public.pump_models
+for select
+to authenticated
+using (true);
+
+create policy family_pumps_select
+on public.family_pumps
 for select
 to authenticated
 using ((select private.is_family_member(family_id)));
 
-create policy bottles_insert
-on public.bottles
+create policy family_pumps_insert
+on public.family_pumps
+for insert
+to authenticated
+with check ((select private.can_write_family(family_id)));
+
+create policy family_pumps_update
+on public.family_pumps
+for update
+to authenticated
+using ((select private.can_write_family(family_id)))
+with check ((select private.can_write_family(family_id)));
+
+create policy family_pumps_delete
+on public.family_pumps
+for delete
+to authenticated
+using ((select private.can_write_family(family_id)));
+
+create policy chiller_items_select
+on public.chiller_items
+for select
+to authenticated
+using ((select private.is_family_member(family_id)));
+
+create policy chiller_items_insert
+on public.chiller_items
 for insert
 to authenticated
 with check (
@@ -854,15 +1098,15 @@ with check (
   and created_by = (select auth.uid())
 );
 
-create policy bottles_update
-on public.bottles
+create policy chiller_items_update
+on public.chiller_items
 for update
 to authenticated
 using ((select private.can_write_family(family_id)))
 with check ((select private.can_write_family(family_id)));
 
-create policy bottles_delete
-on public.bottles
+create policy chiller_items_delete
+on public.chiller_items
 for delete
 to authenticated
 using ((select private.can_write_family(family_id)));
@@ -950,7 +1194,9 @@ revoke all on table
   public.babies,
   public.invites,
   public.logs,
-  public.bottles,
+  public.pump_models,
+  public.family_pumps,
+  public.chiller_items,
   public.reminders,
   public.push_subscriptions,
   public.member_settings
@@ -962,8 +1208,11 @@ grant select, insert, update, delete on table
   public.babies,
   public.invites,
   public.logs,
-  public.bottles,
+  public.family_pumps,
+  public.chiller_items,
   public.reminders,
   public.push_subscriptions,
   public.member_settings
 to authenticated;
+
+grant select on table public.pump_models to authenticated;

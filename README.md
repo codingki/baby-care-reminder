@@ -1,6 +1,6 @@
 # Baby Care Reminder
 
-A mobile-first PWA for families tracking diaper changes, feeds in millilitres, pumped-milk bottle countdowns, and breast-pump reminders. This phase is the foundation: the app shell, installable PWA, Supabase magic-link sign-in, and the first database migration. Logging, invites, and web push are not wired up yet.
+A mobile-first PWA for families tracking diaper changes, feeds in millilitres, a chiller for milk and pump parts, and breast-pump reminders. This phase is the foundation: the app shell, installable PWA, Supabase magic-link sign-in, and the first database migration. Logging, invites, and web push are not wired up yet.
 
 The interface is English and Bahasa Indonesia. Millilitres are the volume unit.
 
@@ -47,19 +47,21 @@ Choosing a language in **Settings** stores `bcr_locale` for one year on this dev
 
 ## Database migration
 
-The schema is `supabase/migrations/20261105180018_phase0_foundation.sql`. It is not applied to the hosted database by this repo.
+The schema is `supabase/migrations/20261105180018_phase0_foundation.sql`. It is not applied to the hosted database by this repo. `/bottles` and `/bottles/[id]` redirect to `/chiller`.
 
 Tables:
 
 | Table | What it stores |
 | --- | --- |
-| `families` | A household |
+| `families` | A household, including `pump_parts_wash_by_hours` (default 12, allowed 1–24) |
 | `family_members` | Users and roles: owner, caregiver, viewer |
 | `babies` | Name, birth date, sex, weight in grams |
 | `invites` | Single-use invites that expire within 7 days |
 | `logs` | Diaper, feed (ml), and pump events |
-| `bottles` | Storage location (`room`, `fridge`, `freezer`, `cooler`, `thawed`), `stored_at`, `expires_at` |
-| `reminders` | One row per baby and type, with `next_due_at` |
+| `pump_models` | Catalog of brands and models. Any signed-in user can read it |
+| `family_pumps` | Pumps a family owns, including a custom name and nickname |
+| `chiller_items` | Milk or pump parts: location, `stored_at`, `expires_at`, optional `pump_id`, optional `volume_ml` |
+| `reminders` | One schedule row per baby and type. Each pump-parts chiller item adds a reminder due 30 minutes before `expires_at`, for owners and caregivers |
 | `push_subscriptions` | Browser push subscriptions for a later phase |
 | `member_settings` | Quiet hours, snooze, `language`, and `unit` (default `ml`) |
 
@@ -95,7 +97,7 @@ Session refresh lives in `src/proxy.ts`. Next.js 16 uses that file instead of `m
 
 ## Later
 
-- Save diaper, feed, pump, bottle, and baby-profile rows
+- Save diaper, feed, pump, chiller, and baby-profile rows to Supabase. The chiller and My pumps screens currently keep that data on this device
 - Sync the language cookie to `member_settings.language`
 - Schedule reminders and send web push, including quiet hours and snooze
 - Create and share invites from the family screen

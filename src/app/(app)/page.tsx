@@ -59,9 +59,9 @@ export default function HomePage() {
       </ul>
       <ul className="flex flex-col gap-3">
         <li>
-          <Link href="/bottles" className="block rounded-3xl border border-line bg-card px-5 py-4">
-            <span className="block text-base font-semibold">{t("home.bottles")}</span>
-            <span className="mt-1 block text-sm leading-6 text-muted">{t("home.bottlesDetail")}</span>
+          <Link href="/chiller" className="block rounded-3xl border border-line bg-card px-5 py-4">
+            <span className="block text-base font-semibold">{t("home.chiller")}</span>
+            <span className="mt-1 block text-sm leading-6 text-muted">{t("home.chillerDetail")}</span>
           </Link>
         </li>
         <li>

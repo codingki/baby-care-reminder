@@ -9,13 +9,21 @@ import type { MessageKey } from "@/i18n/translate";
 
 const navItems = [
   { href: "/", labelKey: "shell.navLog" },
-  { href: "/bottles", labelKey: "shell.navBottles" },
+  { href: "/chiller", labelKey: "shell.navChiller" },
   { href: "/family", labelKey: "shell.navFamily" },
   { href: "/settings", labelKey: "shell.navSettings" },
 ] as const satisfies ReadonlyArray<{ href: string; labelKey: MessageKey }>;
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/" || pathname.startsWith("/log");
+  if (href === "/chiller") {
+    return (
+      pathname === "/chiller" ||
+      pathname.startsWith("/chiller/") ||
+      pathname === "/bottles" ||
+      pathname.startsWith("/bottles/")
+    );
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

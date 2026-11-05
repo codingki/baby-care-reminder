@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Baby Care Reminder",
   "short_name": "Baby Care",
-  "description": "Track diapers, feeds in ml, pumped-milk bottles, and pump reminders with your family.",
+  "description": "Track diapers, feeds in ml, the chiller, and pump reminders with your family.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

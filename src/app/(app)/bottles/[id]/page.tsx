@@ -1,15 +1,20 @@
 import { Suspense } from "react";
-import { BottleDetail } from "@/app/(app)/bottles/[id]/bottle-detail";
+import { redirect } from "next/navigation";
 
-export default function BottlePage({ params }: { params: Promise<{ id: string }> }) {
+export default function BottlesAliasItemPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   return (
     <Suspense fallback={null}>
-      <Bottle params={params} />
+      <Alias params={params} />
     </Suspense>
   );
 }
 
-async function Bottle({ params }: { params: Promise<{ id: string }> }) {
+async function Alias({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <BottleDetail id={id} />;
+  redirect(`/chiller/${id}`);
+  return null;
 }

@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      { source: "/bottles", destination: "/chiller", permanent: false },
+      { source: "/bottles/:id", destination: "/chiller/:id", permanent: false },
+    ];
+  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     default: "Baby Care Reminder",
     template: "%s · Baby Care",
   },
-  description: "Track diapers, feeds in ml, pumped-milk bottles, and pump reminders with your family.",
+  description: "Track diapers, feeds in ml, the chiller, and pump reminders with your family.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
