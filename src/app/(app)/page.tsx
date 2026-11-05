@@ -55,6 +55,10 @@ export default function HomePage() {
         ))}
       </ul>
       <HomeReminders />
+      <Link href="/timeline" className="block rounded-3xl border border-line bg-card px-5 py-4">
+        <span className="block text-base font-semibold">{t("home.today")}</span>
+        <span className="mt-1 block text-sm leading-6 text-muted">{t("home.todayDetail")}</span>
+      </Link>
       <ul className="flex flex-col gap-3">
         <li>
           <Link href="/onboarding" className="block rounded-3xl border border-line bg-card px-5 py-4">

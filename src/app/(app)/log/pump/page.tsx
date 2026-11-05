@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
+import { loadFamilyContext } from "@/lib/family-context";
+import { saveChillerItem, saveLog } from "@/lib/save-log";
 import type { Locale } from "@/i18n/locales";
 import {
-  addChillerItems,
   CHILLER_LOCATIONS,
   defaultPumpId,
   markPumpUsed,
@@ -36,7 +38,9 @@ export default function PumpPage() {
 
 function PumpLog() {
   const { locale, t } = useI18n();
+  const router = useRouter();
   const care = useCareStore();
+  const [status, setStatus] = useState<string | null>(null);
   const [pumpedMl, setPumpedMl] = useState("");
   const [minutes, setMinutes] = useState("");
   const [logged, setLogged] = useState(false);
@@ -62,23 +66,56 @@ function PumpLog() {
   const canStoreParts = storeParts && Boolean(selectedPump);
   const canConfirm = canStoreParts || saveMilk;
 
-  function confirm() {
+  async function confirm() {
     const parsed = volume.trim() === "" ? null : Number(volume);
     const volumeMl =
       parsed !== null && Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
-    const created = addChillerItems({
-      storeParts,
-      pumpId: selectedPump?.id ?? null,
-      saveMilk,
-      volumeMl,
-      milkLocation,
-    });
-    setAddedIds(created.map((item) => item.id));
+    const context = await loadFamilyContext();
+    const washByHours = context?.washByHours ?? care.washByHours;
+    const ids: string[] = [];
+    if (storeParts && selectedPump) {
+      const saved = await saveChillerItem({
+        type: "pump_parts",
+        location: "fridge",
+        volumeMl: null,
+        pumpId: selectedPump.id,
+        washByHours,
+      });
+      ids.push(saved.id);
+    }
+    if (saveMilk) {
+      const saved = await saveChillerItem({
+        type: "milk",
+        location: milkLocation,
+        volumeMl: volumeMl ?? Math.round(pumpedAmount),
+        pumpId: null,
+        washByHours,
+      });
+      ids.push(saved.id);
+    }
+    setAddedIds(ids);
+    setStatus(t("common.saved"));
   }
 
-  function logPump() {
+  async function logPump() {
     if (!selectedPump || !canLog) return;
+    const minutesValue = minutes.trim() === "" ? null : Math.round(Number(minutes) * 60);
+    const result = await saveLog({
+      kind: "pump",
+      amountMl: Math.round(pumpedAmount),
+      durationSeconds: minutesValue && minutesValue > 0 ? minutesValue : null,
+      pumpId: selectedPump.id,
+    });
+    if (result === "needs-family") {
+      router.push("/onboarding");
+      return;
+    }
+    if (result === "error") {
+      setStatus(t("common.failed"));
+      return;
+    }
     markPumpUsed(selectedPump.id);
+    setStatus(result === "queued" ? t("common.queued") : t("common.saved"));
     setLogged(true);
   }
 
@@ -205,6 +242,7 @@ function PumpLog() {
           {t("pump.log")}
         </button>
       )}
+      {status ? <p role="status">{status}</p> : null}
     </div>
   );
 }

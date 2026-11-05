@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { addOwnedPump, pumpLabel, removeOwnedPump } from "@/lib/device-care";
-import { catalogByBrand } from "@/lib/pump-catalog";
-import { useI18n } from "@/i18n/provider";
+import { useEffect, useState } from "react";
 import { useCareStore } from "@/components/use-care-store";
+import { useI18n } from "@/i18n/provider";
+import { addOwnedPump, getCareState, pumpLabel, removeOwnedPump, replacePumps } from "@/lib/device-care";
+import { deleteOwnedPump, loadRemotePumps, persistOwnedPump } from "@/lib/family-pumps";
+import { readQueue } from "@/lib/offline-queue";
+import { catalogByBrand } from "@/lib/pump-catalog";
 
 export function MyPumps() {
   const { t } = useI18n();
@@ -14,7 +16,21 @@ export function MyPumps() {
   const [nickname, setNickname] = useState("");
   const groups = catalogByBrand();
 
-  function addPump() {
+  useEffect(() => {
+    void loadRemotePumps().then((remote) => {
+      if (!remote) return;
+      const pending = new Set(
+        readQueue()
+          .filter((item) => item.kind === "pump")
+          .map((item) => String(item.row.id)),
+      );
+      const localPending = getCareState().pumps.filter((pump) => pending.has(pump.id));
+      const ids = new Set(remote.map((pump) => pump.id));
+      replacePumps([...localPending.filter((pump) => !ids.has(pump.id)), ...remote]);
+    });
+  }, []);
+
+  async function addPump() {
     const created = addOwnedPump({
       catalogId: choice === "custom" ? null : choice,
       customName,
@@ -23,6 +39,12 @@ export function MyPumps() {
     if (!created) return;
     setCustomName("");
     setNickname("");
+    await persistOwnedPump(created);
+  }
+
+  async function removePump(id: string) {
+    removeOwnedPump(id);
+    await deleteOwnedPump(id);
   }
 
   return (
@@ -41,7 +63,7 @@ export function MyPumps() {
               <span className="text-sm font-medium">{pumpLabel(pump)}</span>
               <button
                 type="button"
-                onClick={() => removeOwnedPump(pump.id)}
+                onClick={() => void removePump(pump.id)}
                 className="min-h-11 rounded-full px-3 text-sm font-semibold text-muted"
               >
                 {t("settings.removePump")}
@@ -92,7 +114,7 @@ export function MyPumps() {
       </label>
       <button
         type="button"
-        onClick={addPump}
+        onClick={() => void addPump()}
         className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground"
       >
         {t("settings.addPump")}

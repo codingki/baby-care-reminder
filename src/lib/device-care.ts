@@ -1,6 +1,6 @@
 import { findCatalogPump } from "@/lib/pump-catalog";
 
-export const CHILLER_LOCATIONS = ["room", "fridge", "freezer", "cooler", "thawed"] as const;
+export const CHILLER_LOCATIONS = ["room", "fridge", "freezer", "cooler", "thawed", "leftover"] as const;
 
 export type ChillerLocation = (typeof CHILLER_LOCATIONS)[number];
 
@@ -36,10 +36,11 @@ const STORAGE_KEY = "bcr_care_device_v1";
 
 const MILK_STORAGE_HOURS: Record<ChillerLocation, number> = {
   room: 4,
-  fridge: 96,
-  freezer: 24 * 180,
+  fridge: 24 * 4,
+  freezer: 24 * 182,
   cooler: 24,
   thawed: 24,
+  leftover: 2,
 };
 
 const listeners = new Set<() => void>();
@@ -199,6 +200,19 @@ export function addOwnedPump(input: {
 export function removeOwnedPump(id: string) {
   const current = readCare();
   writeCare({ ...current, pumps: current.pumps.filter((pump) => pump.id !== id) });
+}
+
+export function replacePumps(pumps: OwnedPump[]) {
+  const current = readCare();
+  writeCare({ ...current, pumps });
+}
+
+export function rememberChillerItem(item: ChillerItem) {
+  const current = readCare();
+  writeCare({
+    ...current,
+    items: [item, ...current.items.filter((entry) => entry.id !== item.id)],
+  });
 }
 
 export function addChillerItems(input: {
