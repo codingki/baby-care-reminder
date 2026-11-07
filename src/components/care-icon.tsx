@@ -5,6 +5,7 @@ import {
   BellRing,
   Calendar,
   ChartLine,
+  Check,
   ChevronDown,
   Clock,
   House,
@@ -40,7 +41,8 @@ export type CareIconName =
   | "dbf"
   | "weight"
   | "insights"
-  | "chevron";
+  | "chevron"
+  | "check";
 
 export function SectionHeading({
   icon,
@@ -100,6 +102,8 @@ export function CareIcon({
       return <ChartLine {...icon} />;
     case "chevron":
       return <ChevronDown {...icon} />;
+    case "check":
+      return <Check {...icon} />;
     case "chiller":
       return <Snowflake {...icon} />;
     case "diaper":

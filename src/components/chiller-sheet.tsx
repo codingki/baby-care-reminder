@@ -24,12 +24,14 @@ export function ChillerSheet({
   open,
   pumps,
   babies,
+  defaultBabyId = "",
   onClose,
   onSaved,
 }: {
   open: boolean;
   pumps: SheetPump[];
   babies: { id: string; name: string }[];
+  defaultBabyId?: string;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
@@ -41,7 +43,7 @@ export function ChillerSheet({
   const [milkNote, setMilkNote] = useState("");
   const [location, setLocation] = useState<(typeof LOCATIONS)[number]>("fridge");
   const [pumpId, setPumpId] = useState<string>("");
-  const [milkBabyId, setMilkBabyId] = useState("");
+  const [milkBabyId, setMilkBabyId] = useState(defaultBabyId);
   const [status, setStatus] = useState<string | null>(null);
   const [unit, setUnit] = useState("ml");
 

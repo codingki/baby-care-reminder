@@ -12,7 +12,7 @@ import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
 import type { MessageKey } from "@/i18n/translate";
-import { babyAgeParts, joinAgeParts } from "@/lib/baby-age";
+import { formatBabyAge } from "@/lib/baby-age";
 import { CHILLER_LOCATIONS, pumpLabel, type ChillerLocation, type OwnedPump } from "@/lib/device-care";
 import { diaperIntervalMinutes, feedIntervalMinutes, DEFAULT_CARE_INTERVAL_MINUTES } from "@/lib/feed-interval";
 import { loadRemotePumps } from "@/lib/family-pumps";
@@ -480,7 +480,10 @@ export function HomeDashboard() {
             {stored.map((item) => {
               const expired = now !== null && new Date(item.expiresAt).getTime() < now;
               const pump = mergedPumps.find((entry) => entry.id === item.pumpId);
-              const milkBaby = item.type === "milk" && item.babyId ? babies.find((entry) => entry.id === item.babyId)?.name : null;
+              const milkBaby =
+                babies.length > 1 && item.type === "milk" && item.babyId
+                  ? babies.find((entry) => entry.id === item.babyId)?.name
+                  : null;
               const label =
                 item.type === "milk"
                   ? `${item.volumeMl ? `${item.volumeMl} ml` : t("chiller.milk")}${milkBaby ? ` · ${milkBaby}` : ""}`
@@ -591,6 +594,7 @@ export function HomeDashboard() {
         pumps={sheetPumps}
         babies={babies.map((entry) => ({ id: entry.id, name: entry.name }))}
         babyName={baby?.name ?? null}
+        selectedBabyId={baby?.id ?? null}
         onClose={closeLog}
         onSaved={refreshHome}
       />
@@ -612,17 +616,7 @@ function countdownLine(
 }
 
 function ageLabel(birthDate: string, locale: Locale, t: (key: MessageKey, vars?: Record<string, string>) => string) {
-  const age = babyAgeParts(birthDate);
-  if (!age) return "";
-  const parts: string[] = [];
-  if (age.months === 1) parts.push(t("home.monthOne"));
-  else if (age.months > 1) parts.push(t("home.monthMany", { count: String(age.months) }));
-  if (age.weeks === 1) parts.push(t("home.weekOne"));
-  else if (age.weeks > 1) parts.push(t("home.weekMany", { count: String(age.weeks) }));
-  if (age.days === 1) parts.push(t("home.dayOne"));
-  else if (age.days > 1) parts.push(t("home.dayMany", { count: String(age.days) }));
-  if (parts.length === 0) parts.push(t("home.dayMany", { count: "0" }));
-  return t("home.ageOld", { age: joinAgeParts(parts, locale === "id" ? "id" : "en") });
+  return formatBabyAge(birthDate, locale === "id" ? "id" : "en", t);
 }
 
 function mergePumps(remote: OwnedPump[], local: OwnedPump[]) {

@@ -15,7 +15,7 @@ export const en = {
   },
   login: {
     title: "Sign in",
-    lede: "We'll email you a sign-in link. Family members share one baby.",
+    lede: "We'll email you a sign-in link. A family can share more than one baby.",
     emailLabel: "Email",
     emailPlaceholder: "you@example.com",
     submit: "Email me a link",

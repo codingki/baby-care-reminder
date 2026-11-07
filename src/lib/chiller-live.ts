@@ -21,7 +21,7 @@ function isLocation(value: string): value is ChillerLocation {
   return CHILLER_LOCATIONS.some((location) => location === value);
 }
 
-export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
+export async function loadLiveChiller(): Promise<{ items: LiveChillerItem[]; babyCount: number } | null> {
   const context = await loadFamilyContext();
   if (!context) return null;
   const supabase = createClient();
@@ -39,9 +39,12 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
     supabase.from("babies").select("id, name").eq("family_id", context.familyId),
   ]);
   if (error || !items) return null;
+  const babyCount = (babies ?? []).length;
   const pumpRows = pumps ?? [];
   const modelRows = models ?? [];
-  return items.flatMap((item) => {
+  return {
+    babyCount,
+    items: items.flatMap((item) => {
     if (item.type !== "milk" && item.type !== "pump_parts") return [];
     if (typeof item.location !== "string" || !isLocation(item.location)) return [];
     const pump = pumpRows.find((entry) => entry.id === item.pump_id);
@@ -67,5 +70,6 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
             : null,
       },
     ];
-  });
+  }),
+  };
 }

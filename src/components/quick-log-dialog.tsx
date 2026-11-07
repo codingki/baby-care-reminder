@@ -30,6 +30,7 @@ export function QuickLogDialog({
   pumps,
   babies,
   babyName,
+  selectedBabyId,
   onClose,
   onSaved,
 }: {
@@ -37,6 +38,7 @@ export function QuickLogDialog({
   pumps: SheetPump[];
   babies: { id: string; name: string }[];
   babyName: string | null;
+  selectedBabyId: string | null;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -78,6 +80,7 @@ export function QuickLogDialog({
                 open
                 pumps={pumps}
                 babies={babies}
+                defaultBabyId={selectedBabyId ?? ""}
                 onClose={onClose}
                 onSaved={onSaved}
               />

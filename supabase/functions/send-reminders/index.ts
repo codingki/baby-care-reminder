@@ -125,15 +125,14 @@ Deno.serve(async (request) => {
   }
 
   const familyIds = [...new Set(due.map((item) => item.familyId))];
-  const babyIds = [...new Set(due.flatMap((item) => (item.babyId ? [item.babyId] : [])))];
-  const { data: babyRows } = babyIds.length
-    ? await supabase.from("babies").select("id, name").in("id", babyIds)
-    : { data: [] };
-  const babyNames = new Map(
-    (babyRows ?? []).flatMap((baby) =>
-      typeof baby.id === "string" && typeof baby.name === "string" ? [[baby.id, baby.name] as const] : [],
-    ),
-  );
+  const { data: babyRows } = await supabase.from("babies").select("id, name, family_id").in("family_id", familyIds);
+  const babyNames = new Map<string, string>();
+  const babiesInFamily = new Map<string, number>();
+  for (const baby of babyRows ?? []) {
+    if (typeof baby.id !== "string" || typeof baby.family_id !== "string") continue;
+    if (typeof baby.name === "string") babyNames.set(baby.id, baby.name);
+    babiesInFamily.set(baby.family_id, (babiesInFamily.get(baby.family_id) ?? 0) + 1);
+  }
   const { data: members } = await supabase
     .from("family_members")
     .select("user_id, family_id, role")
@@ -176,7 +175,12 @@ Deno.serve(async (request) => {
       const text = copy[language];
       const phrase = text[item.kind as keyof typeof text] ?? text.feed;
       const babyName = item.babyId ? babyNames.get(item.babyId) ?? null : null;
-      const body = babyName ? `${babyName} · ${phrase}` : phrase;
+      const named = (babiesInFamily.get(item.familyId) ?? 0) > 1 && babyName;
+      const body = named
+        ? language === "id"
+          ? `${phrase} untuk ${babyName}`
+          : `${phrase} for ${babyName}`
+        : phrase;
       for (const device of devices) {
         try {
           await webpush.sendNotification(

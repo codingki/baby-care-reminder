@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AddBabyForm } from "@/components/add-baby-form";
 import { BabyPhotoField } from "@/components/baby-photo";
 import { CareIcon } from "@/components/care-icon";
 import { useI18n } from "@/i18n/provider";
@@ -40,7 +41,10 @@ export function BabyProfile() {
   const { locale, t } = useI18n();
   const router = useRouter();
   const [familyId, setFamilyId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [babies, setBabies] = useState<BabyCard[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [created, setCreated] = useState<{ id: string; name: string; path: string | null } | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -51,6 +55,7 @@ export function BabyProfile() {
         return;
       }
       setFamilyId(context.familyId);
+      setSelectedId(context.babyId);
       const supabase = createClient();
       const [babyResult, history] = await Promise.all([
         supabase
@@ -91,7 +96,52 @@ export function BabyProfile() {
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-base font-semibold">{t("family.babies")}</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">{t("family.babies")}</h2>
+        <button type="button" onClick={() => setAdding(true)} className="text-sm font-semibold text-accent">
+          {t("home.addBaby")}
+        </button>
+      </div>
+      {adding && familyId && !created ? (
+        <AddBabyForm
+          familyId={familyId}
+          idPrefix="family-baby"
+          onCreated={(baby) => {
+            setCreated({ id: baby.id, name: baby.name, path: null });
+            setSelectedId(baby.id);
+            setBabies((current) => [
+              { id: baby.id, name: baby.name, photoPath: null, weights: [] },
+              ...current.filter((entry) => entry.id !== baby.id),
+            ]);
+          }}
+        />
+      ) : null}
+      {created && familyId ? (
+        <div className="flex flex-col gap-3 rounded-3xl border border-line bg-card px-5 py-4">
+          <BabyPhotoField
+            familyId={familyId}
+            babyId={created.id}
+            name={created.name}
+            path={created.path}
+            onChange={(path) => {
+              setCreated({ ...created, path });
+              setBabies((current) =>
+                current.map((entry) => (entry.id === created.id ? { ...entry, photoPath: path } : entry)),
+              );
+            }}
+          />
+          <button
+            type="button"
+            className="self-start text-sm font-semibold text-accent"
+            onClick={() => {
+              setCreated(null);
+              setAdding(false);
+            }}
+          >
+            {created.path ? t("onboarding.photoContinue") : t("onboarding.photoSkip")}
+          </button>
+        </div>
+      ) : null}
       {babies.length === 0 ? <p className="text-sm text-muted">{t("settings.noBaby")}</p> : null}
       {babies.map((baby) => {
         const latest = baby.weights[0];
@@ -102,6 +152,7 @@ export function BabyProfile() {
                 <h3 className="flex items-center gap-2 text-base font-semibold">
                   <CareIcon name="baby" className="h-5 w-5 text-accent" />
                   {baby.name}
+                  {baby.id === selectedId ? <CareIcon name="check" className="h-4 w-4 text-accent" /> : null}
                 </h3>
                 <p className="text-sm text-muted">{t("family.babyProfile")}</p>
               </div>

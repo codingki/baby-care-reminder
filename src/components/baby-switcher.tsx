@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { BabyAvatar } from "@/components/baby-photo";
+import { AddBabyForm } from "@/components/add-baby-form";
+import { BabyAvatar, BabyPhotoField } from "@/components/baby-photo";
 import { CareIcon } from "@/components/care-icon";
-import { SavingLabel } from "@/components/saving-label";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/provider";
+import { formatBabyAge } from "@/lib/baby-age";
 import { rememberBaby } from "@/lib/selected-baby";
-import { createClient } from "@/lib/supabase/client";
 
 export type SwitchBaby = {
   id: string;
@@ -15,8 +16,6 @@ export type SwitchBaby = {
   birthDate: string;
   photoPath: string | null;
 };
-
-const sexes = ["female", "male", "unspecified"] as const;
 
 export function BabySwitcher({
   familyId,
@@ -31,15 +30,10 @@ export function BabySwitcher({
   age: string | null;
   onChanged: () => void;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [name, setName] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const [sex, setSex] = useState<(typeof sexes)[number]>("unspecified");
-  const [weightKg, setWeightKg] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ id: string; name: string; path: string | null } | null>(null);
   const selected = babies.find((baby) => baby.id === selectedId) ?? babies[0] ?? null;
   const label = selected?.name ?? t("home.addBaby");
 
@@ -50,39 +44,10 @@ export function BabySwitcher({
     onChanged();
   }
 
-  async function addBaby() {
-    if (!familyId || pending) return;
-    const kg = Number(weightKg);
-    if (!name.trim() || !birthDate || !Number.isFinite(kg) || kg <= 0) {
-      setError(t("onboarding.error"));
-      return;
-    }
-    setPending(true);
-    setError(null);
-    const supabase = createClient();
-    const { data, error: insertError } = await supabase
-      .from("babies")
-      .insert({
-        family_id: familyId,
-        name: name.trim(),
-        birth_date: birthDate,
-        sex,
-        weight_grams: Math.round(kg * 1000),
-        feeding_type: "bottle",
-      })
-      .select("id")
-      .single();
-    setPending(false);
-    if (insertError || !data?.id) {
-      setError(t("onboarding.error"));
-      return;
-    }
-    rememberBaby(familyId, data.id);
+  function finishAdd() {
+    setCreated(null);
     setAdding(false);
     setOpen(false);
-    setName("");
-    setBirthDate("");
-    setWeightKg("");
     onChanged();
   }
 
@@ -135,77 +100,34 @@ export function BabySwitcher({
                 className="flex min-h-14 items-center gap-3 rounded-2xl bg-[#f3f5f3] px-3 text-left"
               >
                 <BabyAvatar name={baby.name} path={baby.photoPath} className="h-10 w-10 text-base" />
-                <span className="min-w-0 flex-1 truncate text-base font-semibold">{baby.name}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-base font-semibold">{baby.name}</span>
+                  <span className="block truncate text-sm text-muted">
+                    {formatBabyAge(baby.birthDate, locale === "id" ? "id" : "en", t)}
+                  </span>
+                </span>
+                {baby.id === selected?.id ? <CareIcon name="check" className="h-5 w-5 shrink-0 text-accent" /> : null}
               </button>
             ))}
-            {adding ? (
-              <form
-                className="flex flex-col gap-3 pt-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void addBaby();
-                }}
-              >
-                <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="switch-baby-name">
-                  {t("onboarding.name")}
-                  <input
-                    id="switch-baby-name"
-                    required
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="switch-baby-birth">
-                  {t("onboarding.birthDate")}
-                  <input
-                    id="switch-baby-birth"
-                    type="date"
-                    required
-                    value={birthDate}
-                    onChange={(event) => setBirthDate(event.target.value)}
-                    className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="switch-baby-sex">
-                  {t("onboarding.sex")}
-                  <select
-                    id="switch-baby-sex"
-                    value={sex}
-                    onChange={(event) => setSex(event.target.value as (typeof sexes)[number])}
-                    className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
-                  >
-                    {sexes.map((option) => (
-                      <option key={option} value={option}>
-                        {t(`onboarding.${option}`)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="switch-baby-weight">
-                  {t("onboarding.weightKg")}
-                  <input
-                    id="switch-baby-weight"
-                    type="number"
-                    inputMode="decimal"
-                    min={0.1}
-                    step={0.01}
-                    required
-                    value={weightKg}
-                    onChange={(event) => setWeightKg(event.target.value)}
-                    className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={pending}
-                  aria-busy={pending}
-                  className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
-                >
-                  {pending ? <SavingLabel label={t("common.saving")} /> : t("onboarding.saveBaby")}
-                </button>
-                {error ? <p className="text-sm">{error}</p> : null}
-              </form>
+            {created && familyId ? (
+              <div className="flex flex-col gap-3 pt-2">
+                <BabyPhotoField
+                  familyId={familyId}
+                  babyId={created.id}
+                  name={created.name}
+                  path={created.path}
+                  onChange={(path) => setCreated({ ...created, path })}
+                />
+                <Button type="button" variant="outline" onClick={finishAdd}>
+                  {created.path ? t("onboarding.photoContinue") : t("onboarding.photoSkip")}
+                </Button>
+              </div>
+            ) : adding && familyId ? (
+              <AddBabyForm
+                familyId={familyId}
+                idPrefix="switch-baby"
+                onCreated={(baby) => setCreated({ id: baby.id, name: baby.name, path: null })}
+              />
             ) : (
               <button
                 type="button"

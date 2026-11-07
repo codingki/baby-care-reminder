@@ -26,6 +26,7 @@ export function ChillerDetail({ id }: { id: string }) {
   const care = useCareStore();
   const [now, setNow] = useState(nowMs);
   const [item, setItem] = useState<LiveChillerItem | null>(null);
+  const [babyCount, setBabyCount] = useState(0);
   const [state, setState] = useState<"loading" | "ready">("loading");
   const undo = useChillerUndo();
 
@@ -35,8 +36,9 @@ export function ChillerDetail({ id }: { id: string }) {
   }, []);
 
   useEffect(() => {
-    void loadLiveChiller().then((items) => {
-      const found = items?.find((entry) => entry.id === id) ?? null;
+    void loadLiveChiller().then((result) => {
+      setBabyCount(result?.babyCount ?? 0);
+      const found = result?.items.find((entry) => entry.id === id) ?? null;
       if (found) {
         setItem(found);
         setState("ready");
@@ -108,7 +110,9 @@ export function ChillerDetail({ id }: { id: string }) {
           {title}
         </h2>
         <p className="text-sm text-muted">{t(`chiller.${item.location}`)}</p>
-        {item.type === "milk" && item.babyName ? <p className="text-sm font-semibold">{item.babyName}</p> : null}
+        {babyCount > 1 && item.type === "milk" && item.babyName ? (
+          <p className="text-sm font-semibold">{item.babyName}</p>
+        ) : null}
         {item.volumeMl !== null ? (
           <p className="text-sm">{t("chiller.volume", { amount: String(item.volumeMl) })}</p>
         ) : null}

@@ -17,7 +17,7 @@ export const id = {
   },
   login: {
     title: "Masuk",
-    lede: "Kami mengirim tautan masuk ke email Anda. Keluarga berbagi satu catatan bayi.",
+    lede: "Kami mengirim tautan masuk ke email Anda. Satu keluarga bisa berbagi lebih dari satu bayi.",
     emailLabel: "Email",
     emailPlaceholder: "nama@email.com",
     submit: "Kirim tautan ke email",

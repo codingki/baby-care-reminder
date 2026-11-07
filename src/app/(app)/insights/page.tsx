@@ -66,6 +66,7 @@ export default function InsightsPage() {
           .from("logs")
           .select("kind, occurred_at, amount_ml, diaper_kind, feed_kind, duration_seconds")
           .eq("family_id", context.familyId)
+          .eq("baby_id", context.babyId ?? "")
           .gte("occurred_at", start.toISOString())
           .order("occurred_at"),
         supabase

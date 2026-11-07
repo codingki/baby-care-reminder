@@ -49,6 +49,7 @@ export default function TimelinePage() {
       const since = startOfDay().toISOString();
       const queued = readQueue()
         .filter((item) => item.kind === "log")
+        .filter((item) => !context?.babyId || item.row.baby_id === context.babyId)
         .map((item) => toLog(item.id, item.row, null))
         .filter((log): log is TimelineLog => log !== null && log.occurredAt >= since);
 
@@ -64,6 +65,7 @@ export default function TimelinePage() {
           .from("logs")
           .select("id, kind, occurred_at, amount_ml, diaper_kind, feed_kind, breast_side, duration_seconds, poop_color, poop_amount, logged_by")
           .eq("family_id", context.familyId)
+          .eq("baby_id", context.babyId ?? "")
           .gte("occurred_at", since)
           .order("occurred_at", { ascending: false }),
         loadMemberNames(context.familyId),

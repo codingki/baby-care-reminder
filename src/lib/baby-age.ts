@@ -38,6 +38,33 @@ export function babyAgeParts(birthDate: string, now = new Date()): AgeParts | nu
   };
 }
 
+type AgeKey =
+  | "home.monthOne"
+  | "home.monthMany"
+  | "home.weekOne"
+  | "home.weekMany"
+  | "home.dayOne"
+  | "home.dayMany"
+  | "home.ageOld";
+
+export function formatBabyAge(
+  birthDate: string,
+  locale: "en" | "id",
+  t: (key: AgeKey, vars?: Record<string, string>) => string,
+): string {
+  const age = babyAgeParts(birthDate);
+  if (!age) return "";
+  const parts: string[] = [];
+  if (age.months === 1) parts.push(t("home.monthOne"));
+  else if (age.months > 1) parts.push(t("home.monthMany", { count: String(age.months) }));
+  if (age.weeks === 1) parts.push(t("home.weekOne"));
+  else if (age.weeks > 1) parts.push(t("home.weekMany", { count: String(age.weeks) }));
+  if (age.days === 1) parts.push(t("home.dayOne"));
+  else if (age.days > 1) parts.push(t("home.dayMany", { count: String(age.days) }));
+  if (parts.length === 0) parts.push(t("home.dayMany", { count: "0" }));
+  return t("home.ageOld", { age: joinAgeParts(parts, locale) });
+}
+
 export function joinAgeParts(parts: readonly string[], language: "en" | "id"): string {
   if (parts.length === 0) return "";
   if (language === "id") return parts.join(", ");

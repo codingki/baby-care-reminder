@@ -19,6 +19,7 @@ export default function ChillerPage() {
   const device = useCareStore();
   const [now, setNow] = useState(nowMs);
   const [live, setLive] = useState<LiveChillerItem[] | null>(null);
+  const [babyCount, setBabyCount] = useState(0);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [reload, setReload] = useState(0);
   const [filter, setFilter] = useState<"active" | "cleared">("active");
@@ -34,12 +35,13 @@ export default function ChillerPage() {
   }, []);
 
   useEffect(() => {
-    void loadLiveChiller().then((items) => {
-      if (!items) {
+    void loadLiveChiller().then((result) => {
+      if (!result) {
         setState(device.items.length > 0 ? "ready" : "error");
         return;
       }
-      setLive(items);
+      setLive(result.items);
+      setBabyCount(result.babyCount);
       setState("ready");
     });
   }, [device.items.length, reload]);
@@ -207,7 +209,7 @@ export default function ChillerPage() {
                     </p>
                     <p className="mt-1 text-sm text-muted">
                       {t(`chiller.${item.location}`)}
-                      {item.type === "milk" && item.babyName ? ` · ${item.babyName}` : ""}
+                      {babyCount > 1 && item.type === "milk" && item.babyName ? ` · ${item.babyName}` : ""}
                     </p>
                     {item.type === "milk" && item.note ? <p className="mt-1 text-sm">{item.note}</p> : null}
                     {filter === "active" && expired ? (
