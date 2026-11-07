@@ -76,6 +76,19 @@ export const en = {
     dayMany: "{count} days",
     ageOld: "{age} old",
   },
+  when: {
+    label: "When",
+    now: "Now",
+    ago15: "15 min ago",
+    ago30: "30 min ago",
+    ago60: "60 min ago",
+  },
+  edit: {
+    title: "Edit entry",
+    delete: "Delete",
+    deleteConfirm: "Delete this entry?",
+    deleted: "Deleted",
+  },
   common: {
     back: "Back",
     later: "Saving comes in a later update. This screen shows where it will live.",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { CareIcon } from "@/components/care-icon";
 import { Screen } from "@/components/screen";
 import { Card } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Bar, BarChart, Line, LineChart, XAxis } from "recharts";
 import { useI18n } from "@/i18n/provider";
-import { loadFamilyContext } from "@/lib/family-context";
+import { scopeFromKey, scopedKey, useScope } from "@/lib/care-queries";
 import { formatSpan } from "@/lib/relative-time";
 import { createClient } from "@/lib/supabase/client";
 
@@ -45,44 +46,45 @@ const SAGE_DEEP = "#3e5648";
 export default function InsightsPage() {
   const { t } = useI18n();
   const [range, setRange] = useState<Range>(7);
-  const [days, setDays] = useState<Day[]>([]);
-  const [weights, setWeights] = useState<WeightPoint[]>([]);
-  const [summary, setSummary] = useState({ feeds: 0, ml: 0, diapers: 0, gap: "" });
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-
-  useEffect(() => {
-    let ignore = false;
-    void (async () => {
-      const context = await loadFamilyContext();
-      if (!context) {
-        if (!ignore) setState("error");
-        return;
+  const scope = useScope();
+  const insightsQuery = useQuery({
+    queryKey: scopedKey("insights", scope.data, range),
+    enabled: Boolean(scope.data?.userId && scope.data.familyId),
+    queryFn: async ({ queryKey }) => {
+      const selected = scopeFromKey(queryKey);
+      const selectedRange: Range = queryKey[4] === 30 ? 30 : 7;
+      if (!selected.babyId) {
+        return {
+          userId: selected.userId,
+          familyId: selected.familyId,
+          babyId: null,
+          days: buildDays(selectedRange, []),
+          weights: [] as WeightPoint[],
+          summary: { feeds: 0, ml: 0, diapers: 0, gap: "" },
+        };
       }
-      const start = startOfRange(range);
+      const start = startOfRange(selectedRange);
       const today = startOfDay(new Date());
       const supabase = createClient();
       const [logs, weightLogs] = await Promise.all([
         supabase
           .from("logs")
           .select("kind, occurred_at, amount_ml, diaper_kind, feed_kind, duration_seconds")
-          .eq("family_id", context.familyId)
-          .eq("baby_id", context.babyId ?? "")
+          .eq("family_id", selected.familyId)
+          .eq("baby_id", selected.babyId)
+          .is("deleted_at", null)
           .gte("occurred_at", start.toISOString())
           .order("occurred_at"),
         supabase
           .from("weight_logs")
           .select("weighed_on, weight_grams")
-          .eq("baby_id", context.babyId ?? "")
+          .eq("baby_id", selected.babyId)
+          .is("deleted_at", null)
           .gte("weighed_on", dayKey(start))
           .order("weighed_on"),
       ]);
-      if (ignore) return;
-      if (logs.error || weightLogs.error || !context.babyId) {
-        setState(logs.error || weightLogs.error ? "error" : "ready");
-        setDays(buildDays(range, []));
-        setWeights([]);
-        setSummary({ feeds: 0, ml: 0, diapers: 0, gap: "" });
-        return;
+      if (logs.error || weightLogs.error) {
+        throw logs.error ?? weightLogs.error;
       }
       const parsed = (logs.data ?? []).flatMap((row) => {
         if (typeof row.kind !== "string" || typeof row.occurred_at !== "string") return [];
@@ -97,20 +99,23 @@ export default function InsightsPage() {
           } satisfies LogRow,
         ];
       });
-      setDays(buildDays(range, parsed));
-      setWeights(
-        (weightLogs.data ?? []).flatMap((row) => {
+      return {
+        userId: selected.userId,
+        familyId: selected.familyId,
+        babyId: selected.babyId,
+        days: buildDays(selectedRange, parsed),
+        weights: (weightLogs.data ?? []).flatMap((row) => {
           if (typeof row.weighed_on !== "string" || typeof row.weight_grams !== "number") return [];
           return [{ at: row.weighed_on, grams: row.weight_grams }];
         }),
-      );
-      setSummary(todaySummary(parsed, today));
-      setState("ready");
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [range]);
+        summary: todaySummary(parsed, today),
+      };
+    },
+  });
+  const days = insightsQuery.data?.days ?? [];
+  const weights = insightsQuery.data?.weights ?? [];
+  const summary = insightsQuery.data?.summary ?? { feeds: 0, ml: 0, diapers: 0, gap: "" };
+  const state = insightsQuery.data ? "ready" : insightsQuery.isPending ? "loading" : "error";
 
   return (
     <Screen
@@ -127,7 +132,6 @@ export default function InsightsPage() {
         aria-label={t("insights.title")}
         onValueChange={(next) => {
           if (next !== "7" && next !== "30") return;
-          setState("loading");
           setRange(next === "7" ? 7 : 30);
         }}
       >

@@ -30,6 +30,7 @@ export async function loadLiveChiller(): Promise<{ items: LiveChillerItem[]; bab
       .from("chiller_items")
       .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note, cleared_at, cleared_reason, baby_id")
       .eq("family_id", context.familyId)
+      .is("deleted_at", null)
       .order("expires_at"),
     supabase
       .from("family_pumps")

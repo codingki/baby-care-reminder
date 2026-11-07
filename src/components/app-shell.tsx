@@ -1,13 +1,15 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Mark } from "@/components/mark";
 import { PhoneFrame } from "@/components/phone-frame";
 import { SyncDeviceTimezone } from "@/components/sync-device-timezone";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { useAnySheetOpen } from "@/components/sheet-presence";
+import { CareQueryProvider } from "@/lib/query-provider";
 import { useI18n } from "@/i18n/provider";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -49,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PhoneFrame>
+      <CareQueryProvider>
       <SyncDeviceTimezone />
       <a
         href="#content"
@@ -69,6 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <PathChrome>{children}</PathChrome>
       </Suspense>
+      </CareQueryProvider>
     </PhoneFrame>
   );
 }
@@ -91,13 +95,15 @@ function PathChrome({ children }: { children: React.ReactNode }) {
   const log = pathname.startsWith("/log");
   const bare = hidesBrandHeader(pathname);
   const hideNav = sheetOpen || log;
+  const mainRef = useRef<HTMLElement>(null);
 
   return (
     <>
       {home || bare ? null : <BrandHeader />}
       <main
         id="content"
-        className={
+        ref={mainRef}
+        className={`relative ${
           log
             ? "safe-x flex min-h-0 flex-1 flex-col overflow-y-auto pt-5 pb-5 max-sm:overflow-hidden max-sm:pb-0"
             : home
@@ -105,8 +111,9 @@ function PathChrome({ children }: { children: React.ReactNode }) {
               : bare
                 ? `safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1.25rem,env(safe-area-inset-top))] ${hideNav ? "pb-5" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`
                 : `safe-x min-h-0 flex-1 overflow-y-auto pt-5 ${hideNav ? "pb-5" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`
-        }
+        }`}
       >
+        <PullToRefresh scrollRef={mainRef} />
         {children}
       </main>
       {hideNav ? null : <BottomNav pathname={pathname} />}

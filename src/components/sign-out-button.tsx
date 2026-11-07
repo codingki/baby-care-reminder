@@ -6,6 +6,7 @@ import { CareIcon } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/provider";
+import { clearCareCache } from "@/lib/query-provider";
 import { createClient } from "@/lib/supabase/client";
 
 export function SignOutButton() {
@@ -18,6 +19,7 @@ export function SignOutButton() {
     setPending(true);
     setMessage(null);
     const supabase = createClient();
+    await clearCareCache();
     const { error } = await supabase.auth.signOut();
     if (error) {
       setPending(false);

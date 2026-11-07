@@ -79,6 +79,19 @@ export const id = {
     dayMany: "{count} hari",
     ageOld: "{age}",
   },
+  when: {
+    label: "Waktu",
+    now: "Sekarang",
+    ago15: "15 menit lalu",
+    ago30: "30 menit lalu",
+    ago60: "60 menit lalu",
+  },
+  edit: {
+    title: "Ubah catatan",
+    delete: "Hapus",
+    deleteConfirm: "Hapus catatan ini?",
+    deleted: "Dihapus",
+  },
   common: {
     back: "Kembali",
     later: "Penyimpanan menyusul di pembaruan berikutnya. Layar ini menunjukkan tempatnya.",

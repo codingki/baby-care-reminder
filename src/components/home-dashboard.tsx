@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { focusBaby, scopedKey, scopeFromKey, useScope, type CareScope } from "@/lib/care-queries";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BabySwitcher, type SwitchBaby } from "@/components/baby-switcher";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
+import { EditEntryDialog, type ChillerEdit, type LogEdit } from "@/components/edit-entry";
 import { ExpiryBar } from "@/components/expiry-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +24,7 @@ import { loadRemotePumps } from "@/lib/family-pumps";
 import { readQueue } from "@/lib/offline-queue";
 import { formatSpan, nowMs } from "@/lib/relative-time";
 import { QuickLogDialog, type QuickLogKind } from "@/components/quick-log-dialog";
-import { chooseBaby, rememberBaby } from "@/lib/selected-baby";
+import { chooseBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
 
 type Baby = SwitchBaby & {
@@ -30,6 +33,7 @@ type Baby = SwitchBaby & {
 };
 
 type HomeData = {
+  userId: string | null;
   familyId: string | null;
   babies: SwitchBaby[];
   baby: Baby | null;
@@ -56,23 +60,6 @@ function logKind(value: string | null): QuickLogKind | null {
     return value;
   }
   return null;
-}
-
-function blankHome(pumps: OwnedPump[]): HomeData {
-  return {
-    familyId: null,
-    babies: [],
-    baby: null,
-    diaperAt: null,
-    feedAt: null,
-    pumpAt: null,
-    diaperStart: null,
-    feedStart: null,
-    pumpStart: null,
-    logs: [],
-    chiller: [],
-    pumps,
-  };
 }
 
 type ChillerRow = {
@@ -182,21 +169,8 @@ export function HomeDashboard() {
   const requestedBaby = params.get("baby");
   const [seenLog, setSeenLog] = useState(requestedLog);
   const [queuedBaby, setQueuedBaby] = useState<string | null>(requestedBaby);
-  const [familyId, setFamilyId] = useState<string | null>(null);
-  const [babies, setBabies] = useState<SwitchBaby[]>([]);
-  const [baby, setBaby] = useState<Baby | null>(null);
   const [log, setLog] = useState<QuickLogKind | null>(requestedLog);
-  const [diaperAt, setDiaperAt] = useState<string | null>(null);
-  const [feedAt, setFeedAt] = useState<string | null>(null);
-  const [pumpAt, setPumpAt] = useState<string | null>(null);
-  const [diaperStart, setDiaperStart] = useState<string | null>(null);
-  const [feedStart, setFeedStart] = useState<string | null>(null);
-  const [pumpStart, setPumpStart] = useState<string | null>(null);
-  const [chiller, setChiller] = useState<ChillerRow[]>([]);
-  const [logs, setLogs] = useState<LogRow[]>([]);
-  const [pumps, setPumps] = useState<OwnedPump[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready">("loading");
-  const [version, setVersion] = useState(0);
+  const [editing, setEditing] = useState<{ log: LogEdit | null; chiller: ChillerEdit | null } | null>(null);
   if (requestedLog !== seenLog) {
     setSeenLog(requestedLog);
     if (requestedLog) setLog(requestedLog);
@@ -214,20 +188,11 @@ export function HomeDashboard() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (scope: CareScope) => {
     const supabase = createClient();
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
+    const userId = scope.userId;
+    const familyId = scope.familyId;
     const remotePumps = await loadRemotePumps();
-    if (!userId) return blankHome(remotePumps ?? []);
-    const { data: membership } = await supabase
-      .from("family_members")
-      .select("family_id")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle();
-    const familyId = membership?.family_id;
-    if (!familyId) return blankHome(remotePumps ?? []);
 
     const { data: babyRows } = await supabase
       .from("babies")
@@ -247,10 +212,7 @@ export function HomeDashboard() {
         },
       ];
     });
-    if (queuedBaby && roster.some((entry) => entry.id === queuedBaby)) {
-      rememberBaby(familyId, queuedBaby);
-    }
-    const selectedId = chooseBaby(familyId, roster.map((entry) => entry.id));
+    const selectedId = roster.some((entry) => entry.id === scope.babyId) ? scope.babyId : null;
     const babyRow = roster.find((baby) => baby.id === selectedId) ?? null;
     const viewBaby = selectedId ?? "00000000-0000-0000-0000-000000000000";
 
@@ -261,6 +223,7 @@ export function HomeDashboard() {
         .eq("family_id", familyId)
         .eq("baby_id", viewBaby)
         .eq("kind", "diaper")
+        .is("deleted_at", null)
         .order("occurred_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -270,6 +233,7 @@ export function HomeDashboard() {
         .eq("family_id", familyId)
         .eq("baby_id", viewBaby)
         .eq("kind", "feed")
+        .is("deleted_at", null)
         .order("occurred_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -279,6 +243,7 @@ export function HomeDashboard() {
         .eq("family_id", familyId)
         .eq("baby_id", viewBaby)
         .eq("kind", "pump")
+        .is("deleted_at", null)
         .order("occurred_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -287,6 +252,7 @@ export function HomeDashboard() {
         .select("id, kind, occurred_at, amount_ml, diaper_kind, duration_seconds, feed_kind, breast_side, poop_color, poop_amount")
         .eq("family_id", familyId)
         .eq("baby_id", viewBaby)
+        .is("deleted_at", null)
         .order("occurred_at", { ascending: false })
         .limit(8),
       supabase
@@ -294,6 +260,7 @@ export function HomeDashboard() {
         .select("id, type, baby_id, location, stored_at, expires_at, volume_ml, pump_id, note")
         .eq("family_id", familyId)
         .is("cleared_at", null)
+        .is("deleted_at", null)
         .order("expires_at")
         .limit(40),
       supabase
@@ -316,6 +283,7 @@ export function HomeDashboard() {
     const lastPump = typeof pumpLast.data?.occurred_at === "string" ? pumpLast.data.occurred_at : null;
 
     return {
+      userId,
       familyId,
       babies: roster,
       baby: babyRow,
@@ -335,34 +303,35 @@ export function HomeDashboard() {
       }),
       pumps: remotePumps ?? [],
     };
-  }, [queuedBaby]);
+  }, []);
 
+  const scope = useScope();
+  const queryClient = useQueryClient();
+  const babyAligned = !queuedBaby || scope.data?.babyId === queuedBaby;
   useEffect(() => {
-    let ignore = false;
-    void (async () => {
-      try {
-        const data = await load();
-        if (ignore) return;
-        setFamilyId(data.familyId);
-        setBabies(data.babies);
-        setBaby(data.baby);
-        setDiaperAt(data.diaperAt);
-        setFeedAt(data.feedAt);
-        setPumpAt(data.pumpAt);
-        setDiaperStart(data.diaperStart);
-        setFeedStart(data.feedStart);
-        setPumpStart(data.pumpStart);
-        setLogs(data.logs);
-        setChiller(data.chiller);
-        setPumps(data.pumps);
-      } finally {
-        if (!ignore) setStatus("ready");
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [load, version]);
+    if (!queuedBaby || !scope.data || scope.data.babyId === queuedBaby) return;
+    focusBaby(queryClient, scope.data, queuedBaby);
+  }, [queuedBaby, scope.data, queryClient]);
+  const activeScope = babyAligned ? scope.data : null;
+  const homeQuery = useQuery({
+    queryKey: scopedKey("home", activeScope),
+    queryFn: ({ queryKey }) => load(scopeFromKey(queryKey)),
+    enabled: Boolean(activeScope?.userId && activeScope.familyId),
+  });
+  const view = homeQuery.data ?? null;
+  const familyId = view?.familyId ?? null;
+  const babies = view?.babies ?? [];
+  const baby = view?.baby ?? null;
+  const diaperAt = view?.diaperAt ?? null;
+  const feedAt = view?.feedAt ?? null;
+  const pumpAt = view?.pumpAt ?? null;
+  const diaperStart = view?.diaperStart ?? null;
+  const feedStart = view?.feedStart ?? null;
+  const pumpStart = view?.pumpStart ?? null;
+  const chiller = view?.chiller ?? [];
+  const logs = view?.logs ?? [];
+  const pumps = view?.pumps ?? [];
+  const status = view ? "ready" : scope.isError || homeQuery.isError || (scope.isSuccess && !scope.data) ? "error" : "loading";
 
   useEffect(() => {
     const name = baby?.name || t("shell.navHome");
@@ -413,20 +382,13 @@ export function HomeDashboard() {
 
   const closeLog = useCallback(() => setLog(null), []);
   const refreshHome = useCallback(async () => {
-    const data = await load();
-    setFamilyId(data.familyId);
-    setBabies(data.babies);
-    setBaby(data.baby);
-    setDiaperAt(data.diaperAt);
-    setFeedAt(data.feedAt);
-    setPumpAt(data.pumpAt);
-    setDiaperStart(data.diaperStart);
-    setFeedStart(data.feedStart);
-    setPumpStart(data.pumpStart);
-    setLogs(data.logs);
-    setChiller(data.chiller);
-    setPumps(data.pumps);
-  }, [load]);
+    await queryClient.invalidateQueries({ queryKey: ["home"] });
+    await queryClient.invalidateQueries({ queryKey: ["chiller"] });
+    await queryClient.invalidateQueries({ queryKey: ["timeline"] });
+    await queryClient.invalidateQueries({ queryKey: ["insights"] });
+    await queryClient.invalidateQueries({ queryKey: ["family"] });
+    await queryClient.invalidateQueries({ queryKey: ["weights"] });
+  }, [queryClient]);
   const sheetPumps: SheetPump[] = mergedPumps.map((pump) => ({ id: pump.id, label: pumpLabel(pump) }));
   const quick: { key: QuickLogKind; icon: CareIconName; label: string }[] = [
     { key: "diaper", icon: "diaper", label: t("home.diaper") },
@@ -447,7 +409,13 @@ export function HomeDashboard() {
             babies={babies}
             selectedId={baby?.id ?? null}
             age={status === "ready" ? age : null}
-            onChanged={() => setVersion((current) => current + 1)}
+            onChanged={() => {
+              if (!familyId || !scope.data) return;
+              const id = chooseBaby(familyId, babies.map((entry) => entry.id));
+              if (!id) return;
+              focusBaby(queryClient, scope.data, id);
+              setQueuedBaby(id);
+            }}
           />
         )}
         <Link
@@ -543,9 +511,22 @@ export function HomeDashboard() {
                     : t("home.timeLeft", { time: formatSpan(new Date(item.expiresAt).getTime() - now) });
               return (
                 <li key={item.id}>
-                  <Link
-                    href="/chiller"
-                    className={`${SOFT} relative flex items-center gap-3 overflow-hidden px-4 py-3 ${expired ? "border border-danger" : ""}`}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditing({
+                        log: null,
+                        chiller: {
+                          id: item.id,
+                          type: item.type,
+                          location: item.location,
+                          storedAt: item.storedAt,
+                          volumeMl: item.volumeMl,
+                          note: item.note,
+                        },
+                      })
+                    }
+                    className={`${SOFT} relative flex w-full items-center gap-3 overflow-hidden px-4 py-3 text-left ${expired ? "border border-danger" : ""}`}
                   >
                     <CareIcon
                       name={item.type === "milk" ? "feed" : "chiller"}
@@ -565,7 +546,7 @@ export function HomeDashboard() {
                       now={now}
                       label={t("chiller.expiryBar")}
                     />
-                  </Link>
+                  </button>
                 </li>
               );
             })}
@@ -628,15 +609,21 @@ export function HomeDashboard() {
         ) : (
           <ul className="flex flex-col gap-2">
             {activities.map((item) => (
-              <li key={item.id} className={`${SOFT} flex items-center gap-3 px-4 py-3`}>
-                <CareIcon name={item.icon} className="h-6 w-6 shrink-0 text-accent" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">{item.title}</p>
-                  {item.detail ? <p className="truncate text-sm text-muted">{item.detail}</p> : null}
-                </div>
-                <p className="max-w-[7.5rem] shrink-0 text-right text-xs leading-4 text-muted">
-                  {activityWhen(item.at, locale, t)}
-                </p>
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => setEditing(item)}
+                  className={`${SOFT} flex w-full items-center gap-3 px-4 py-3 text-left`}
+                >
+                  <CareIcon name={item.icon} className="h-6 w-6 shrink-0 text-accent" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{item.title}</p>
+                    {item.detail ? <p className="truncate text-sm text-muted">{item.detail}</p> : null}
+                  </div>
+                  <p className="max-w-[7.5rem] shrink-0 text-right text-xs leading-4 text-muted">
+                    {activityWhen(item.at, locale, t)}
+                  </p>
+                </button>
               </li>
             ))}
           </ul>
@@ -652,6 +639,13 @@ export function HomeDashboard() {
           item.type === "pump_parts" && item.pumpId ? [item.pumpId] : [],
         )}
         onClose={closeLog}
+        onSaved={refreshHome}
+      />
+      <EditEntryDialog
+        log={editing?.log ?? null}
+        chiller={editing?.chiller ?? null}
+        washByHours={24}
+        onClose={() => setEditing(null)}
         onSaved={refreshHome}
       />
     </section>
@@ -697,7 +691,15 @@ function buildActivity(
   t: (key: MessageKey, vars?: Record<string, string>) => string,
 ) {
   const seen = new Set(logs.map((log) => log.id));
-  const rows: { id: string; at: string; icon: CareIconName; title: string; detail: string }[] = [
+  const rows: {
+    id: string;
+    at: string;
+    icon: CareIconName;
+    title: string;
+    detail: string;
+    log: LogEdit | null;
+    chiller: ChillerEdit | null;
+  }[] = [
     ...queued.filter((log) => !seen.has(log.id)),
     ...logs,
   ].flatMap((log) => {
@@ -712,6 +714,14 @@ function buildActivity(
         icon: breast ? "dbf" : kind,
         title: breast ? `${t("home.dbf")} · ${detail}` : t(titleKey(kind)),
         detail: breast ? "" : detail,
+        log: {
+          id: log.id,
+          kind: log.kind,
+          occurredAt: log.occurredAt,
+          amountMl: log.amountMl,
+          durationSeconds: log.durationSeconds,
+        },
+        chiller: null,
       },
     ];
   });
@@ -729,6 +739,15 @@ function buildActivity(
       icon: "chiller",
       title: item.type === "milk" ? t("chiller.milk") : t("chiller.parts"),
       detail,
+      log: null,
+      chiller: {
+        id: item.id,
+        type: item.type,
+        location: item.location,
+        storedAt: item.storedAt,
+        volumeMl: item.volumeMl,
+        note: item.note,
+      },
     });
   }
   return rows.sort((left, right) => (left.at < right.at ? 1 : -1)).slice(0, 8);

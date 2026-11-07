@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AddBabyForm } from "@/components/add-baby-form";
 import { BabyPhotoField } from "@/components/baby-photo";
 import { CareIcon } from "@/components/care-icon";
@@ -9,8 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
-import { loadFamilyContext } from "@/lib/family-context";
-import { rememberBaby } from "@/lib/selected-baby";
+import { focusBaby, scopedKey, scopeFromKey, useScope, type CareScope } from "@/lib/care-queries";
 import { createClient } from "@/lib/supabase/client";
 
 type WeightRow = {
@@ -24,6 +24,10 @@ type BabyCard = {
   name: string;
   photoPath: string | null;
   weights: WeightRow[];
+};
+
+type ProfileData = {
+  babies: BabyCard[];
 };
 
 function formatKg(grams: number) {
@@ -42,39 +46,31 @@ function formatDate(value: string, locale: Locale) {
 export function BabyProfile() {
   const { locale, t } = useI18n();
   const router = useRouter();
-  const [familyId, setFamilyId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [babies, setBabies] = useState<BabyCard[]>([]);
-  const [adding, setAdding] = useState(false);
-  const [created, setCreated] = useState<{ id: string; name: string; path: string | null } | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    void (async () => {
-      const context = await loadFamilyContext();
-      if (!context) {
-        setReady(true);
-        return;
-      }
-      setFamilyId(context.familyId);
-      setSelectedId(context.babyId);
+  const queryClient = useQueryClient();
+  const scope = useScope();
+  const profileQuery = useQuery({
+    queryKey: scopedKey("weights", scope.data),
+    enabled: Boolean(scope.data?.userId && scope.data.familyId),
+    queryFn: async ({ queryKey }) => {
+      const selected = scopeFromKey(queryKey);
       const supabase = createClient();
       const [babyResult, history] = await Promise.all([
         supabase
           .from("babies")
           .select("id, name, photo_path")
-          .eq("family_id", context.familyId)
+          .eq("family_id", selected.familyId)
           .order("created_at"),
         supabase
           .from("weight_logs")
           .select("id, baby_id, weight_grams, weighed_on")
-          .eq("family_id", context.familyId)
+          .eq("family_id", selected.familyId)
+          .is("deleted_at", null)
           .order("weighed_on", { ascending: false })
           .order("created_at", { ascending: false }),
       ]);
       const weights = history.data ?? [];
-      setBabies(
-        (babyResult.data ?? []).flatMap((baby) => {
+      return {
+        babies: (babyResult.data ?? []).flatMap((baby) => {
           if (typeof baby.id !== "string" || typeof baby.name !== "string") return [];
           return [
             {
@@ -89,12 +85,22 @@ export function BabyProfile() {
             },
           ];
         }),
-      );
-      setReady(true);
-    })();
-  }, []);
+      } satisfies ProfileData;
+    },
+  });
+  const [adding, setAdding] = useState(false);
+  const [created, setCreated] = useState<{ id: string; name: string; path: string | null } | null>(null);
+  const familyId = scope.data?.familyId ?? null;
+  const selectedId = scope.data?.babyId ?? null;
+  const babies = profileQuery.data?.babies ?? [];
 
-  if (!ready) return null;
+  function writeBabies(nextScope: CareScope, recipe: (current: BabyCard[]) => BabyCard[]) {
+    queryClient.setQueryData<ProfileData>(scopedKey("weights", nextScope), (current) => ({
+      babies: recipe(current?.babies ?? babies),
+    }));
+  }
+
+  if (!profileQuery.data && profileQuery.isPending) return null;
 
   return (
     <section className="flex flex-col gap-3">
@@ -110,8 +116,9 @@ export function BabyProfile() {
           idPrefix="family-baby"
           onCreated={(baby) => {
             setCreated({ id: baby.id, name: baby.name, path: null });
-            setSelectedId(baby.id);
-            setBabies((current) => [
+            if (!scope.data) return;
+            const nextScope = { ...scope.data, babyId: baby.id };
+            writeBabies(nextScope, (current) => [
               { id: baby.id, name: baby.name, photoPath: null, weights: [] },
               ...current.filter((entry) => entry.id !== baby.id),
             ]);
@@ -127,7 +134,8 @@ export function BabyProfile() {
             path={created.path}
             onChange={(path) => {
               setCreated({ ...created, path });
-              setBabies((current) =>
+              if (!scope.data) return;
+              writeBabies(scope.data, (current) =>
                 current.map((entry) => (entry.id === created.id ? { ...entry, photoPath: path } : entry)),
               );
             }}
@@ -167,11 +175,12 @@ export function BabyProfile() {
                 babyId={baby.id}
                 name={baby.name}
                 path={baby.photoPath}
-                onChange={(photoPath) =>
-                  setBabies((current) =>
+                onChange={(photoPath) => {
+                  if (!scope.data) return;
+                  writeBabies(scope.data, (current) =>
                     current.map((entry) => (entry.id === baby.id ? { ...entry, photoPath } : entry)),
-                  )
-                }
+                  );
+                }}
               />
             ) : null}
             <p className="text-base font-semibold">
@@ -198,7 +207,7 @@ export function BabyProfile() {
               size="sm"
               className="h-auto min-h-0 self-start px-0 text-sm"
               onClick={() => {
-                if (familyId) rememberBaby(familyId, baby.id);
+                if (scope.data) focusBaby(queryClient, scope.data, baby.id);
                 router.push("/?log=weight");
               }}
             >

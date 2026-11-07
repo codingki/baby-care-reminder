@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { scopeFromKey, scopedKey, useScope } from "@/lib/care-queries";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Screen } from "@/components/screen";
 import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/provider";
 import type { MessageKey } from "@/i18n/translate";
 import type { Locale } from "@/i18n/locales";
-import { loadFamilyContext } from "@/lib/family-context";
 import { loadMemberNames } from "@/lib/member-names";
 import { readQueue } from "@/lib/offline-queue";
 import { createClient } from "@/lib/supabase/client";
@@ -41,23 +42,21 @@ function clock(iso: string, locale: Locale) {
 
 export default function TimelinePage() {
   const { locale, t } = useI18n();
-  const [logs, setLogs] = useState<TimelineLog[]>([]);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-
-  useEffect(() => {
-    void (async () => {
-      const context = await loadFamilyContext();
+  const scope = useScope();
+  const timelineQuery = useQuery({
+    queryKey: scopedKey("timeline", scope.data),
+    enabled: Boolean(scope.data?.userId && scope.data.familyId),
+    queryFn: async ({ queryKey }) => {
+      const selected = scopeFromKey(queryKey);
       const since = startOfDay().toISOString();
       const queued = readQueue()
         .filter((item) => item.kind === "log")
-        .filter((item) => !context?.babyId || item.row.baby_id === context.babyId)
+        .filter((item) => !selected.babyId || item.row.baby_id === selected.babyId)
         .map((item) => toLog(item.id, item.row, null))
         .filter((log): log is TimelineLog => log !== null && log.occurredAt >= since);
 
-      if (!context) {
-        setLogs(queued);
-        setState(queued.length > 0 ? "ready" : "error");
-        return;
+      if (!selected.babyId) {
+        return { userId: selected.userId, familyId: selected.familyId, babyId: null, logs: queued };
       }
 
       const supabase = createClient();
@@ -65,18 +64,15 @@ export default function TimelinePage() {
         supabase
           .from("logs")
           .select("id, kind, occurred_at, amount_ml, diaper_kind, feed_kind, breast_side, duration_seconds, poop_color, poop_amount, logged_by")
-          .eq("family_id", context.familyId)
-          .eq("baby_id", context.babyId ?? "")
+          .eq("family_id", selected.familyId)
+          .eq("baby_id", selected.babyId)
+          .is("deleted_at", null)
           .gte("occurred_at", since)
           .order("occurred_at", { ascending: false }),
-        loadMemberNames(context.familyId),
+        loadMemberNames(selected.familyId),
       ]);
 
-      if (error) {
-        setLogs(queued);
-        setState(queued.length > 0 ? "ready" : "error");
-        return;
-      }
+      if (error) return { userId: selected.userId, familyId: selected.familyId, babyId: selected.babyId, logs: queued };
 
       const remote = (data ?? [])
         .map((row) =>
@@ -99,10 +95,16 @@ export default function TimelinePage() {
         )
         .filter((log): log is TimelineLog => log !== null);
       const seen = new Set(remote.map((log) => log.id));
-      setLogs([...queued.filter((log) => !seen.has(log.id)), ...remote]);
-      setState("ready");
-    })();
-  }, []);
+      return {
+        userId: selected.userId,
+        familyId: selected.familyId,
+        babyId: selected.babyId,
+        logs: [...queued.filter((log) => !seen.has(log.id)), ...remote],
+      };
+    },
+  });
+  const logs = timelineQuery.data?.logs ?? [];
+  const state = timelineQuery.data ? "ready" : timelineQuery.isPending ? "loading" : "error";
 
   const feedMl = logs.filter((log) => log.kind === "feed").reduce((sum, log) => sum + (log.amountMl ?? 0), 0);
   const pumpMl = logs.filter((log) => log.kind === "pump").reduce((sum, log) => sum + (log.amountMl ?? 0), 0);

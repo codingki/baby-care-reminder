@@ -9,6 +9,7 @@ import { MINUTE_PRESETS, PresetChips, volumePresets, volumeToMl } from "@/compon
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
+import { toWhenInput, WhenField, useWhen } from "@/components/when-field";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,6 +53,7 @@ async function finishLog(
   }
   if (result === "error") {
     setMessage(t("common.failed"));
+    toast(t("common.failed"));
     return;
   }
   await onSaved();
@@ -67,6 +69,7 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   const { pending, run } = useSaveLock();
   const [amount, setAmount] = useState("");
   const [unit, setUnit] = useState("ml");
+  const { when, setWhen } = useWhen();
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,7 +84,7 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     const ml = volumeToMl(entered, unit);
     setMessage(null);
     await run(async () => {
-      const result = await saveLog({ kind: "feed", amountMl: Math.round(ml) });
+      const result = await saveLog({ kind: "feed", amountMl: Math.round(ml), occurredAt: when.toISOString() });
       await finishLog(result, t, router, setMessage, onSaved, onClose);
     });
   }
@@ -89,6 +92,7 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   return (
     <>
       <div className={field}>
+        <WhenField when={when} onChange={setWhen} />
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-ml">
           {unit === "oz" ? t("feed.ounces") : t("feed.amount")}
           <Input
@@ -121,6 +125,7 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   const router = useRouter();
   const { pending, run } = useSaveLock();
   const [side, setSide] = useState<(typeof sides)[number] | null>(null);
+  const { when, setWhen } = useWhen();
   const [minutes, setMinutes] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const length = Number(minutes);
@@ -135,6 +140,7 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
         feedKind: "breast",
         breastSide: side,
         durationSeconds: Math.round(length * 60),
+        occurredAt: when.toISOString(),
       });
       await finishLog(result, t, router, setMessage, onSaved, onClose);
     });
@@ -143,6 +149,7 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   return (
     <>
       <div className={field}>
+        <WhenField when={when} onChange={setWhen} />
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">{t("dbf.side")}</p>
           <div className="grid grid-cols-2 gap-2">
@@ -218,6 +225,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const [color, setColor] = useState<PoopColor | null>(null);
   const [amount, setAmount] = useState<PoopAmount | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const { when, setWhen } = useWhen();
   const concern = color === "red" || color === "black" || color === "white";
   const detailed = kind === "dirty" || kind === "mixed";
 
@@ -232,6 +240,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
         diaperKind,
         poopColor: poop?.color ?? undefined,
         poopAmount: poop?.amount ?? undefined,
+        occurredAt: when.toISOString(),
       });
       await finishLog(result, t, router, setMessage, onSaved, onClose);
     } finally {
@@ -243,6 +252,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
   return (
     <>
       <div className={field}>
+        <WhenField when={when} onChange={setWhen} />
         {kind === null || kind === "wet" ? (
           <div className="grid grid-cols-1 gap-3">
             {diaperChoices.map((choice) => (
@@ -365,6 +375,7 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const { pending, run } = useSaveLock();
   const [kg, setKg] = useState("");
   const [date, setDate] = useState(todayInput);
+  const { when, setWhen } = useWhen();
   const [message, setMessage] = useState<string | null>(null);
   const parsed = Number(kg);
   const ready = Number.isFinite(parsed) && parsed > 0 && date.length > 0;
@@ -385,7 +396,7 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
         family_id: context.familyId,
         logged_by: context.userId,
         weight_grams: Math.round(parsed * 1000),
-        weighed_on: date,
+        weighed_on: toWhenInput(when).slice(0, 10),
       });
       if (error) {
         setMessage(t("common.failed"));
@@ -399,6 +410,7 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
   return (
     <>
       <div className={field}>
+        <WhenField when={when} onChange={setWhen} />
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-kg">
           {t("weight.kg")}
           <Input
@@ -465,6 +477,7 @@ export function PumpLog({
   const [pending, setPending] = useState<"log" | "chiller" | null>(null);
   const [unit, setUnit] = useState("ml");
   const lock = useRef(false);
+  const { when, setWhen } = useWhen();
 
   useEffect(() => {
     void loadFamilyContext().then((context) => {
@@ -500,6 +513,7 @@ export function PumpLog({
           volumeMl: null,
           pumpId: selectedPump.id,
           washByHours,
+          storedAt: when.toISOString(),
         });
         if (saved.status === "error") {
           setStatus(t("common.failed"));
@@ -515,6 +529,7 @@ export function PumpLog({
           pumpId: null,
           washByHours,
           babyId: null,
+          storedAt: when.toISOString(),
         });
         if (saved.status === "error") {
           setStatus(t("common.failed"));
@@ -541,6 +556,7 @@ export function PumpLog({
         amountMl: volumeToMl(pumpedAmount, unit),
         durationSeconds: minutesValue && minutesValue > 0 ? minutesValue : null,
         pumpId: selectedPump.id,
+        occurredAt: when.toISOString(),
       });
       if (result === "needs-family") {
         onClose();
@@ -564,6 +580,7 @@ export function PumpLog({
   return (
     <>
       <div className={field}>
+        <WhenField when={when} onChange={setWhen} />
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pumped-ml">
           {t("pump.amount")}
           <Input

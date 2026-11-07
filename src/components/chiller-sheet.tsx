@@ -9,6 +9,7 @@ import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useWhen, WhenField } from "@/components/when-field";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
 import { saveChillerItem } from "@/lib/save-log";
@@ -50,6 +51,7 @@ export function ChillerSheet({
   const [milkBabyId, setMilkBabyId] = useState(defaultBabyId);
   const [status, setStatus] = useState<string | null>(null);
   const [unit, setUnit] = useState("ml");
+  const { when, setWhen } = useWhen();
 
   const onlyPump = pumps.length === 1 ? pumps[0].id : "";
   const selectedPump = pumps.some((pump) => pump.id === pumpId) ? pumpId : onlyPump;
@@ -77,6 +79,7 @@ export function ChillerSheet({
         washByHours: context?.washByHours ?? 24,
         note: milkNote,
         babyId: milkBabyId || null,
+        storedAt: when.toISOString(),
       });
       if (saved.status === "error") {
         setStatus(t("common.failed"));
@@ -103,6 +106,7 @@ export function ChillerSheet({
         volumeMl: null,
         pumpId: selectedPump,
         washByHours: context?.washByHours ?? 24,
+        storedAt: when.toISOString(),
       });
       if (saved.status === "error") {
         setStatus(t("common.failed"));
@@ -177,6 +181,7 @@ export function ChillerSheet({
               <CareIcon name="feed" className="h-4 w-4 text-accent" />
               {t("home.storeMilk")}
             </h3>
+            <WhenField when={when} onChange={setWhen} />
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-ml">
               {t("pump.milkAmount")}
               <Input
@@ -260,6 +265,7 @@ export function ChillerSheet({
               <CareIcon name="pump" className="h-4 w-4 text-accent" />
               {t("home.storeParts")}
             </h3>
+            <WhenField when={when} onChange={setWhen} />
             {pumps.length === 0 ? (
               <p className="text-sm leading-6">
                 {t("pump.noPumps")}{" "}

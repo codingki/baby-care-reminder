@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SavingLabel } from "@/components/saving-label";
 import { BabyProfile } from "@/components/baby-profile";
 import { Screen } from "@/components/screen";
@@ -9,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n/provider";
-import { loadFamilyContext } from "@/lib/family-context";
+import { scopeFromKey, scopedKey, useScope } from "@/lib/care-queries";
 import { createClient } from "@/lib/supabase/client";
 
 type Member = {
@@ -28,20 +29,25 @@ type Invite = {
 
 export default function FamilyPage() {
   const { t } = useI18n();
-  const [members, setMembers] = useState<Member[]>([]);
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [role, setRole] = useState<Member["role"] | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [familyId, setFamilyId] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState<"caregiver" | "viewer">("caregiver");
   const [link, setLink] = useState<string | null>(null);
-  const [name, setName] = useState("");
+  const [nameDraft, setName] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const scope = useScope();
+  const queryClient = useQueryClient();
+  const familyQuery = useQuery({
+    queryKey: scopedKey("family", scope.data),
+    enabled: Boolean(scope.data?.userId && scope.data.familyId),
+    queryFn: ({ queryKey }) => {
+      const selected = scopeFromKey(queryKey);
+      return refresh(selected.familyId, selected.userId, selected.babyId);
+    },
+  });
+  const state = familyQuery.data ? "ready" : familyQuery.isPending ? "loading" : "error";
   const [pending, setPending] = useState<"name" | "invite" | null>(null);
   const lock = useRef(false);
 
-  async function refresh(currentFamilyId: string, currentUserId: string) {
+  async function refresh(currentFamilyId: string, currentUserId: string, babyId: string | null) {
     const supabase = createClient();
     const [memberResult, inviteResult] = await Promise.all([
       supabase
@@ -55,10 +61,7 @@ export default function FamilyPage() {
         .is("used_at", null)
         .order("created_at", { ascending: false }),
     ]);
-    if (memberResult.error) {
-      setState("error");
-      return;
-    }
+    if (memberResult.error) return null;
     const nextMembers = (memberResult.data ?? []).flatMap((row) => {
       if (row.role !== "owner" && row.role !== "caregiver" && row.role !== "viewer") return [];
       return [
@@ -70,11 +73,15 @@ export default function FamilyPage() {
         },
       ];
     });
-    setMembers(nextMembers);
     const mine = nextMembers.find((member) => member.userId === currentUserId);
-    setRole(mine?.role ?? null);
-    setName(mine?.name ?? "");
-    setInvites(
+    return {
+      userId: currentUserId,
+      familyId: currentFamilyId,
+      babyId,
+      members: nextMembers,
+      role: mine?.role ?? null,
+      name: mine?.name ?? "",
+      invites:
       (inviteResult.data ?? []).flatMap((row) => {
         if (row.role !== "caregiver" && row.role !== "viewer") return [];
         if (row.used_at) return [];
@@ -87,22 +94,15 @@ export default function FamilyPage() {
           },
         ];
       }),
-    );
-    setState("ready");
+    };
   }
 
-  useEffect(() => {
-    void (async () => {
-      const context = await loadFamilyContext();
-      if (!context) {
-        setState("error");
-        return;
-      }
-      setFamilyId(context.familyId);
-      setUserId(context.userId);
-      await refresh(context.familyId, context.userId);
-    })();
-  }, []);
+  const name = nameDraft ?? familyQuery.data?.name ?? "";
+  const members = familyQuery.data?.members ?? [];
+  const invites = familyQuery.data?.invites ?? [];
+  const role = familyQuery.data?.role ?? null;
+  const userId = familyQuery.data?.userId ?? null;
+  const familyId = familyQuery.data?.familyId ?? null;
 
   async function createInvite() {
     if (lock.current || !familyId || !userId || role === "viewer") return;
@@ -131,7 +131,7 @@ export default function FamilyPage() {
       const next = `${window.location.origin}/join/${data.token}`;
       setLink(next);
       setNote(t("family.created"));
-      await refresh(familyId, userId);
+      await queryClient.invalidateQueries({ queryKey: ["family"] });
     } finally {
       lock.current = false;
       setPending(null);
@@ -153,7 +153,7 @@ export default function FamilyPage() {
         .eq("user_id", userId)
         .eq("family_id", familyId);
       setNote(error ? t("common.failed") : t("common.saved"));
-      if (!error) await refresh(familyId, userId);
+      if (!error) await queryClient.invalidateQueries({ queryKey: ["family"] });
     } finally {
       lock.current = false;
       setPending(null);
@@ -188,8 +188,8 @@ export default function FamilyPage() {
             {members.map((member) => (
               <li key={member.id}>
                 <Card className="gap-1 px-5 py-4">
-                <h2 className="text-base font-semibold">{member.name || t(`family.${member.role}`)}</h2>
-                <p className="text-sm text-muted">{t(`family.${member.role}`)}</p>
+                <h2 className="text-base font-semibold">{member.name || t(`family.${member.role as Member["role"]}`)}</h2>
+                <p className="text-sm text-muted">{t(`family.${member.role as Member["role"]}`)}</p>
                 </Card>
               </li>
             ))}
@@ -244,7 +244,7 @@ export default function FamilyPage() {
                 const href = `/join/${invite.token}`;
                 return (
                   <li key={invite.id} className="text-sm">
-                    <span className="font-semibold">{t(`family.${invite.role}`)}</span>
+                    <span className="font-semibold">{t(`family.${invite.role as Invite["role"]}`)}</span>
                     <Button
                       type="button"
                       variant="link"

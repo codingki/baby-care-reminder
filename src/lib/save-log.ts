@@ -82,10 +82,11 @@ export async function saveChillerItem(input: {
   washByHours: number;
   note?: string | null;
   babyId?: string | null;
+  storedAt?: string;
 }): Promise<{ status: "synced" | "queued" | "error"; id: string }> {
   const id = crypto.randomUUID();
   const context = await loadFamilyContext();
-  const storedAt = new Date();
+  const storedAt = input.storedAt ? new Date(input.storedAt) : new Date();
   const expiresAt =
     input.type === "milk"
       ? milkExpiresAt(storedAt, input.location)

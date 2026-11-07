@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n/provider";
+import { useQueryClient } from "@tanstack/react-query";
+import { CARE_SCOPE_KEY, type CareScope } from "@/lib/care-queries";
 import { rememberBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
 
@@ -37,6 +39,7 @@ export function AddBabyForm({
   onCreated: (baby: { id: string; name: string }) => void;
 }) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [sex, setSex] = useState<(typeof sexes)[number]>("unspecified");
@@ -80,6 +83,9 @@ export function AddBabyForm({
       return;
     }
     rememberBaby(familyId, data.id);
+    queryClient.setQueryData<CareScope | null>(CARE_SCOPE_KEY, (current) =>
+      current && current.familyId === familyId ? { ...current, babyId: data.id } : current,
+    );
     onCreated({ id: data.id, name: name.trim() });
   }
 

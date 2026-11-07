@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
 import { ExpiryBar } from "@/components/expiry-bar";
@@ -14,6 +15,7 @@ import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import { loadLiveChiller, type LiveChillerItem } from "@/lib/chiller-live";
+import { scopedKey, useScope } from "@/lib/care-queries";
 import { markChillerCleared, pumpLabel, type ChillerItem, type OwnedPump } from "@/lib/device-care";
 import { formatSpan, nowMs } from "@/lib/relative-time";
 import { createClient } from "@/lib/supabase/client";
@@ -22,10 +24,16 @@ export default function ChillerPage() {
   const { t } = useI18n();
   const device = useCareStore();
   const [now, setNow] = useState(nowMs);
-  const [live, setLive] = useState<LiveChillerItem[] | null>(null);
-  const [babyCount, setBabyCount] = useState(0);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const [reload, setReload] = useState(0);
+  const scope = useScope();
+  const queryClient = useQueryClient();
+  const chillerQuery = useQuery({
+    queryKey: scopedKey("chiller", scope.data),
+    queryFn: () => loadLiveChiller(),
+    enabled: Boolean(scope.data?.userId && scope.data.familyId),
+  });
+  const live = chillerQuery.data?.items ?? null;
+  const babyCount = chillerQuery.data?.babyCount ?? 0;
+  const state = chillerQuery.data ? "ready" : chillerQuery.isPending ? "loading" : scope.data ? "error" : "loading";
   const [filter, setFilter] = useState<"active" | "cleared">("active");
   const [clearAllConfirm, setClearAllConfirm] = useState(false);
   const [clearAllPending, setClearAllPending] = useState(false);
@@ -38,17 +46,10 @@ export default function ChillerPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    void loadLiveChiller().then((result) => {
-      if (!result) {
-        setState(device.items.length > 0 ? "ready" : "error");
-        return;
-      }
-      setLive(result.items);
-      setBabyCount(result.babyCount);
-      setState("ready");
-    });
-  }, [device.items.length, reload]);
+  const reloadChiller = () => {
+    void queryClient.invalidateQueries({ queryKey: ["chiller"] });
+    void queryClient.invalidateQueries({ queryKey: ["home"] });
+  };
 
   const deviceItems: LiveChillerItem[] = device.items.map((item) => ({
     ...item,
@@ -93,7 +94,7 @@ export default function ChillerPage() {
       for (const item of expiredMilk) markChillerCleared(item.id, clearedAt, "discarded");
       undo.show(expiredMilk.map(toUndo));
       setClearAllConfirm(false);
-      setReload((value) => value + 1);
+      reloadChiller();
     } finally {
       clearAllLock.current = false;
       setClearAllPending(false);
@@ -222,7 +223,7 @@ export default function ChillerPage() {
                     type={item.type}
                     onCleared={() => {
                       undo.show([toUndo(item)]);
-                      setReload((value) => value + 1);
+                      reloadChiller();
                     }}
                   />
                 ) : item.clearedReason ? (
@@ -246,7 +247,7 @@ export default function ChillerPage() {
         items={undo.items}
         onDone={() => {
           undo.dismiss();
-          setReload((value) => value + 1);
+          reloadChiller();
         }}
       />
     </Screen>
