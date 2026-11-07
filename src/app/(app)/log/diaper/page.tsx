@@ -138,7 +138,7 @@ export default function DiaperPage() {
                     }`}
                   >
                     <span
-                      className="h-5 w-5 rounded-full border border-line"
+                      className="h-8 w-8 rounded-full border border-line"
                       style={{ backgroundColor: option.swatch }}
                     />
                     {t(`diaper.${option.key}`)}
