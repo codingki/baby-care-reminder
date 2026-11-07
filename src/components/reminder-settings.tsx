@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
+import { deviceTimeZone, saveDeviceTimeZone, timeZoneOptions } from "@/lib/device-timezone";
 import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
 
@@ -17,6 +18,8 @@ type SettingsRow = {
   quiet_hours_enabled: boolean;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
+  timezone: string;
+  timezone_manual: boolean;
   snooze_until: string | null;
   snooze_minutes: number;
 };
@@ -31,6 +34,8 @@ export function ReminderSettings() {
   const [snoozeUntil, setSnoozeUntil] = useState<string | null>(null);
   const [snoozed, setSnoozed] = useState(false);
   const [snoozeMinutes, setSnoozeMinutes] = useState(15);
+  const [timeZone, setTimeZone] = useState(deviceTimeZone);
+  const [timeZoneManual, setTimeZoneManual] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(null);
   const [pending, setPending] = useState<"push" | "quiet" | "snooze" | "clear" | null>(null);
@@ -54,7 +59,7 @@ export function ReminderSettings() {
       const supabase = createClient();
       const { data } = await supabase
         .from("member_settings")
-        .select("quiet_hours_enabled, quiet_hours_start, quiet_hours_end, snooze_until, snooze_minutes")
+        .select("quiet_hours_enabled, quiet_hours_start, quiet_hours_end, timezone, timezone_manual, snooze_until, snooze_minutes")
         .eq("user_id", context.userId)
         .eq("family_id", context.familyId)
         .maybeSingle();
@@ -66,6 +71,8 @@ export function ReminderSettings() {
       setSnoozeUntil(row.snooze_until);
       setSnoozed(Boolean(row.snooze_until && new Date(row.snooze_until).getTime() > Date.now()));
       setSnoozeMinutes(row.snooze_minutes || 15);
+      if (typeof row.timezone === "string") setTimeZone(row.timezone);
+      setTimeZoneManual(Boolean(row.timezone_manual));
     })();
   }, []);
 
@@ -122,7 +129,29 @@ export function ReminderSettings() {
       },
       { onConflict: "endpoint" },
     );
-    setNote(error ? t("common.failed") : t("settings.notificationsOn"));
+    if (error || !userId || !familyId) {
+      setNote(t("common.failed"));
+      return;
+    }
+    await saveDeviceTimeZone(userId, familyId);
+    setNote(t("settings.notificationsOn"));
+  }
+
+  async function saveTimeZone(zone: string, manual: boolean) {
+    if (!userId || !familyId) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("member_settings")
+      .update({ timezone: zone, timezone_manual: manual })
+      .eq("user_id", userId)
+      .eq("family_id", familyId);
+    if (error) {
+      setNote(t("common.failed"));
+      return;
+    }
+    setTimeZone(zone);
+    setTimeZoneManual(manual);
+    setNote(t("common.saved"));
   }
 
   async function saveQuietHours() {
@@ -134,7 +163,6 @@ export function ReminderSettings() {
         quiet_hours_enabled: enabled,
         quiet_hours_start: start,
         quiet_hours_end: end,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       })
       .eq("user_id", userId)
       .eq("family_id", familyId);
@@ -196,6 +224,33 @@ export function ReminderSettings() {
       >
         {pending === "push" ? <SavingLabel label={t("common.saving")} /> : t("settings.enableNotifications")}
       </Button>
+
+      <div className="flex flex-col gap-3 border-t border-line pt-4">
+        <h3 className="text-sm font-semibold">
+          {t("settings.timeZone", {
+            zone: timeZone,
+            mode: timeZoneManual ? t("settings.timeZoneManual") : t("settings.timeZoneAuto"),
+          })}
+        </h3>
+        <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="time-zone">
+          {t("settings.timeZoneLabel")}
+          <select
+            id="time-zone"
+            value={timeZone}
+            onChange={(event) => void saveTimeZone(event.target.value, true)}
+            className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+          >
+            {timeZoneOptions(timeZone).map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button type="button" variant="outline" onClick={() => void saveTimeZone(deviceTimeZone(), false)}>
+          {t("settings.timeZoneUseDevice")}
+        </Button>
+      </div>
 
       <div className="flex flex-col gap-3 border-t border-line pt-4">
         <h3 className="flex items-center gap-2 text-sm font-semibold">

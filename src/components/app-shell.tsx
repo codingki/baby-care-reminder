@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Mark } from "@/components/mark";
 import { PhoneFrame } from "@/components/phone-frame";
+import { SyncDeviceTimezone } from "@/components/sync-device-timezone";
 import { useAnySheetOpen } from "@/components/sheet-presence";
 import { useI18n } from "@/i18n/provider";
 import type { MessageKey } from "@/i18n/translate";
@@ -48,6 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PhoneFrame>
+      <SyncDeviceTimezone />
       <a
         href="#content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-40 focus:rounded-full focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-foreground"

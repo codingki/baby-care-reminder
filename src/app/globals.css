@@ -106,6 +106,30 @@ select {
   outline-offset: 3px;
 }
 
+[data-slot="dialog-overlay"],
+[data-slot="dialog-content"] {
+  --tw-duration: 200ms;
+}
+
+@media (min-width: 40rem) {
+  [data-slot="dialog-content"][data-state="open"] {
+    --tw-enter-translate-y: 0;
+    --tw-enter-scale: 0.95;
+  }
+
+  [data-slot="dialog-content"][data-state="closed"] {
+    --tw-exit-translate-y: 0;
+    --tw-exit-scale: 0.95;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"] {
+    animation: none;
+  }
+}
+
 @utility safe-x {
   padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
   padding-right: max(1.25rem, env(safe-area-inset-right, 0px));

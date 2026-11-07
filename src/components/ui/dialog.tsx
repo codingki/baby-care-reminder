@@ -42,7 +42,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "absolute inset-0 z-40 bg-black/30",
+        "absolute inset-0 z-40 bg-black/30 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none",
         className
       )}
       {...props}
@@ -64,25 +64,22 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "absolute inset-x-0 bottom-0 z-40 flex max-h-[calc(100%-max(0.75rem,env(safe-area-inset-top)))] w-full flex-col overflow-hidden rounded-t-3xl bg-background p-0 text-base text-foreground shadow-[0_0_0_1px_var(--line)] outline-none",
+          "pointer-events-none absolute inset-0 z-40 flex items-end justify-center outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom motion-reduce:animate-none sm:items-center sm:p-4 sm:data-[state=open]:zoom-in-95 sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=closed]:slide-out-to-bottom-0",
           className
         )}
         {...props}
       >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close data-slot="dialog-close" asChild>
-            <Button
-              variant="ghost"
-              className="absolute top-2 right-2"
-              size="icon-sm"
-            >
-              <XIcon
-              />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogPrimitive.Close>
-        )}
+        <div className="pointer-events-auto relative flex max-h-[calc(100%-max(0.75rem,env(safe-area-inset-top))-env(safe-area-inset-bottom))] w-full flex-col overflow-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-h-[85dvh] sm:max-w-md sm:rounded-3xl">
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close data-slot="dialog-close" asChild>
+              <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
+                <XIcon />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DialogPrimitive.Close>
+          )}
+        </div>
       </DialogPrimitive.Content>
     </DialogPortal>
   )

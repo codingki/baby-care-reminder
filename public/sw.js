@@ -1,4 +1,4 @@
-const CACHE = "baby-care-shell-v2";
+const CACHE = "baby-care-shell-v3";
 const PRECACHE = ["/offline.html"];
 
 self.addEventListener("install", (event) => {
@@ -56,13 +56,17 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = event.notification.data?.url || "/";
+  const path = event.notification.data?.url || "/";
+  const target = new URL(path, self.location.origin).href;
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if ("focus" in client) {
-          return client.focus();
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windowClients) => {
+      const existing = windowClients.find((client) => client.url.startsWith(self.location.origin));
+      if (existing) {
+        await existing.focus();
+        if ("navigate" in existing && typeof existing.navigate === "function") {
+          return existing.navigate(target);
         }
+        return existing;
       }
       return self.clients.openWindow(target);
     }),

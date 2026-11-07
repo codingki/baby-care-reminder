@@ -109,7 +109,7 @@ Deploy and schedule it after the migrations and secrets are in place:
 npx supabase functions deploy send-reminders --project-ref bhovselkwcedelwxpkfa
 ```
 
-In the Supabase dashboard, schedule `send-reminders` every 5 minutes with a POST and `Authorization: Bearer <service-role key or CRON_SECRET>`. The function refuses other callers.
+In the Supabase dashboard, schedule `send-reminders` every minute with a POST and `Authorization: Bearer <service-role key or CRON_SECRET>`. The cron query should call it only when something is due. The function refuses other callers.
 
 Notifications on iPhone need iOS 16.4 or newer, and they only work after the app is added to the Home Screen and opened from that icon. Settings walks through that, then asks for permission and stores the subscription.
 

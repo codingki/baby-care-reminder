@@ -19,7 +19,7 @@ import { loadRemotePumps } from "@/lib/family-pumps";
 import { readQueue } from "@/lib/offline-queue";
 import { formatSpan, nowMs } from "@/lib/relative-time";
 import { QuickLogDialog, type QuickLogKind } from "@/components/quick-log-dialog";
-import { chooseBaby } from "@/lib/selected-baby";
+import { chooseBaby, rememberBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
 
 type Baby = SwitchBaby & {
@@ -171,6 +171,9 @@ export function HomeDashboard() {
   const [now, setNow] = useState<number | null>(null);
   const params = useSearchParams();
   const requestedLog = logKind(params.get("log"));
+  const requestedBaby = params.get("baby");
+  const [seenLog, setSeenLog] = useState(requestedLog);
+  const [queuedBaby, setQueuedBaby] = useState<string | null>(requestedBaby);
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [babies, setBabies] = useState<SwitchBaby[]>([]);
   const [baby, setBaby] = useState<Baby | null>(null);
@@ -181,12 +184,17 @@ export function HomeDashboard() {
   const [chiller, setChiller] = useState<ChillerRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [pumps, setPumps] = useState<OwnedPump[]>([]);
-  useEffect(() => {
-    if (!params.get("log")) return;
-    window.history.replaceState(null, "", "/");
-  }, [params]);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [version, setVersion] = useState(0);
+  if (requestedLog !== seenLog) {
+    setSeenLog(requestedLog);
+    if (requestedLog) setLog(requestedLog);
+  }
+  if (requestedBaby !== queuedBaby) setQueuedBaby(requestedBaby);
+  useEffect(() => {
+    if (!params.get("log") && !params.get("baby")) return;
+    window.history.replaceState(null, "", "/");
+  }, [params]);
 
   useEffect(() => {
     const tick = () => setNow(nowMs());
@@ -228,7 +236,10 @@ export function HomeDashboard() {
         },
       ];
     });
-    const selectedId = chooseBaby(familyId, roster.map((baby) => baby.id));
+    if (queuedBaby && roster.some((entry) => entry.id === queuedBaby)) {
+      rememberBaby(familyId, queuedBaby);
+    }
+    const selectedId = chooseBaby(familyId, roster.map((entry) => entry.id));
     const babyRow = roster.find((baby) => baby.id === selectedId) ?? null;
     const viewBaby = selectedId ?? "00000000-0000-0000-0000-000000000000";
 
@@ -310,7 +321,7 @@ export function HomeDashboard() {
       }),
       pumps: remotePumps ?? [],
     };
-  }, []);
+  }, [queuedBaby]);
 
   useEffect(() => {
     let ignore = false;
@@ -429,35 +440,39 @@ export function HomeDashboard() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold tracking-tight">{t("home.nextUp")}</h2>
-        <ul className="grid grid-cols-3 gap-2">
+        <ul className="grid w-full grid-cols-3 items-stretch gap-2">
           {cards.map((card) => {
             const line = countdownLine(card.at, now, t);
             return (
-              <li key={card.key}>
+              <li key={card.key} className="min-w-0">
                 <button
                   type="button"
                   onClick={() => setLog(card.key)}
                   aria-label={`${card.label}, ${line.text}`}
-                  className={`${SOFT} flex min-h-[7.25rem] flex-col items-center justify-center gap-1.5 px-1 py-3 text-center ${
+                  className={`${SOFT} relative flex h-full min-h-[7.25rem] w-full min-w-0 flex-col items-center justify-center gap-1.5 overflow-hidden px-1.5 pt-7 pb-3 text-center ${
                     line.overdue ? "border border-danger" : ""
                   }`}
                 >
+                  <Badge
+                    variant="danger"
+                    aria-hidden={line.overdue ? undefined : true}
+                    className={`absolute top-1.5 left-1/2 h-4 max-w-[calc(100%-0.75rem)] -translate-x-1/2 truncate px-1.5 py-0 text-[10px] leading-4 ${
+                      line.overdue ? "" : "invisible"
+                    }`}
+                  >
+                    {t("home.overdueBadge")}
+                  </Badge>
                   <CareIcon
                     name={card.icon}
-                    className={`h-8 w-8 ${line.overdue ? "text-danger" : "text-accent"}`}
+                    className={`h-8 w-8 shrink-0 ${line.overdue ? "text-danger" : "text-accent"}`}
                   />
                   <span
-                    className={`max-w-full px-0.5 text-[11px] leading-tight font-semibold whitespace-nowrap ${
+                    className={`w-full text-[11px] leading-tight font-semibold text-balance ${
                       line.overdue ? "text-danger" : "text-foreground"
                     }`}
                   >
                     {line.text}
                   </span>
-                  {line.overdue ? (
-                    <Badge variant="danger" className="h-auto px-1.5 py-0 text-[10px]">
-                      {t("home.overdueBadge")}
-                    </Badge>
-                  ) : null}
                   <span className={`text-xs font-medium ${line.overdue ? "text-danger" : "text-accent"}`}>
                     {card.label}
                   </span>

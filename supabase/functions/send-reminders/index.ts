@@ -1,5 +1,5 @@
 // Sends due reminders, milk-expiry alerts, and pump-parts wash-by alerts.
-// Schedule this function every 5 minutes in the Supabase dashboard.
+// The live cron runs every minute and calls this function only when something is due.
 // Required secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by the edge runtime.
 // Invoke with Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY> or Bearer <CRON_SECRET>.
@@ -31,24 +31,30 @@ type Subscription = {
   auth_key: string;
 };
 
-const copy = {
-  en: {
-    title: "Baby Care",
-    diaper: "Diaper due",
-    feed: "Feed due",
-    pump: "Pump due",
-    pump_parts: "Wash pump parts",
-    milk: "Milk expiring",
-  },
-  id: {
-    title: "Perawatan Bayi",
-    diaper: "Waktunya ganti popok",
-    feed: "Waktunya minum",
-    pump: "Waktunya pompa",
-    pump_parts: "Bagian pompa perlu dicuci",
-    milk: "ASI di chiller akan kedaluwarsa",
-  },
-} as const;
+const titles = { en: "Baby Care", id: "Perawatan Bayi" } as const;
+
+function pushBody(language: "en" | "id", kind: string, name: string | null) {
+  if (language === "id") {
+    if (kind === "feed") return name ? `Waktunya ${name} minum susu! 🍼` : "Waktunya minum susu! 🍼";
+    if (kind === "diaper") return name ? `Cek popok! ${name} mungkin perlu ganti` : "Cek popok! Mungkin perlu ganti";
+    if (kind === "pump") return "Waktunya pumping, Bunda! 💪";
+    if (kind === "pump_parts") return "Saatnya cuci perlengkapan pompa 🧼";
+    return "ASIP hampir kedaluwarsa, pakai dulu ya";
+  }
+  if (kind === "feed") return name ? `Time to feed ${name}! 🍼` : "Time to feed! 🍼";
+  if (kind === "diaper") return name ? `Time for a fresh diaper, ${name}!` : "Time for a fresh diaper!";
+  if (kind === "pump") return "Time to pump, mama! 💪";
+  if (kind === "pump_parts") return "Pump parts need a wash soon 🧼";
+  return "Stored milk expires soon, use it first";
+}
+
+function pushUrl(kind: string, babyId: string | null) {
+  if (kind === "milk" || kind === "pump_parts") return "/chiller";
+  const log = kind === "diaper" || kind === "feed" || kind === "pump" ? kind : "feed";
+  const params = new URLSearchParams({ log });
+  if (babyId) params.set("baby", babyId);
+  return `/?${params.toString()}`;
+}
 
 Deno.serve(async (request) => {
   if (request.method !== "POST") {
@@ -127,11 +133,8 @@ Deno.serve(async (request) => {
   const familyIds = [...new Set(due.map((item) => item.familyId))];
   const { data: babyRows } = await supabase.from("babies").select("id, name, family_id").in("family_id", familyIds);
   const babyNames = new Map<string, string>();
-  const babiesInFamily = new Map<string, number>();
   for (const baby of babyRows ?? []) {
-    if (typeof baby.id !== "string" || typeof baby.family_id !== "string") continue;
-    if (typeof baby.name === "string") babyNames.set(baby.id, baby.name);
-    babiesInFamily.set(baby.family_id, (babiesInFamily.get(baby.family_id) ?? 0) + 1);
+    if (typeof baby.id === "string" && typeof baby.name === "string") babyNames.set(baby.id, baby.name);
   }
   const { data: members } = await supabase
     .from("family_members")
@@ -172,15 +175,10 @@ Deno.serve(async (request) => {
       }
       const devices = subscriptionRows.filter((row) => row.user_id === member.user_id);
       const language = prefs?.language === "id" ? "id" : "en";
-      const text = copy[language];
-      const phrase = text[item.kind as keyof typeof text] ?? text.feed;
       const babyName = item.babyId ? babyNames.get(item.babyId) ?? null : null;
-      const named = (babiesInFamily.get(item.familyId) ?? 0) > 1 && babyName;
-      const body = named
-        ? language === "id"
-          ? `${phrase} untuk ${babyName}`
-          : `${phrase} for ${babyName}`
-        : phrase;
+      const body = pushBody(language, item.kind, babyName);
+      const title = titles[language];
+      const url = pushUrl(item.kind, item.babyId);
       for (const device of devices) {
         try {
           await webpush.sendNotification(
@@ -188,7 +186,7 @@ Deno.serve(async (request) => {
               endpoint: device.endpoint,
               keys: { p256dh: device.p256dh, auth: device.auth_key },
             },
-            JSON.stringify({ title: text.title, body, url: item.kind === "milk" ? "/chiller" : "/" }),
+            JSON.stringify({ title, body, url }),
           );
           sent += 1;
           delivered = true;
