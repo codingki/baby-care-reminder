@@ -224,6 +224,7 @@ export const en = {
     volume: "{amount} ml",
     washBy: "Wash by {time}",
     useBy: "Use by {time}",
+    expiryBar: "Time until expiry",
     deviceNote: "Items stay with your family. Offline adds stay on this device until you reconnect.",
     loading: "Loading the chiller…",
     error: "Could not load the chiller.",

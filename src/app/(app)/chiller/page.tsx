@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
+import { ExpiryBar } from "@/components/expiry-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -185,7 +186,7 @@ export default function ChillerPage() {
             return (
               <li
                 key={item.id}
-                className={`flex items-start gap-3 rounded-3xl border bg-card px-5 py-4 ${
+                className={`relative flex items-start gap-3 overflow-hidden rounded-3xl border bg-card px-5 py-4 ${
                   expired && filter === "active" ? "border-danger" : "border-line"
                 }`}
               >
@@ -223,6 +224,14 @@ export default function ChillerPage() {
                   />
                 ) : item.clearedReason ? (
                   <p className="shrink-0 text-sm text-muted">{t(`chiller.${item.clearedReason}`)}</p>
+                ) : null}
+                {filter === "active" ? (
+                  <ExpiryBar
+                    storedAt={item.storedAt}
+                    expiresAt={item.expiresAt}
+                    now={now}
+                    label={t("chiller.expiryBar")}
+                  />
                 ) : null}
               </li>
             );

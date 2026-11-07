@@ -227,6 +227,7 @@ export const id = {
     volume: "{amount} ml",
     washBy: "Cuci sebelum {time}",
     useBy: "Pakai sebelum {time}",
+    expiryBar: "Waktu hingga kedaluwarsa",
     deviceNote: "Item tersimpan untuk keluarga. Tambahan saat offline tetap di perangkat ini sampai tersambung lagi.",
     loading: "Memuat chiller…",
     error: "Chiller tidak dapat dimuat.",

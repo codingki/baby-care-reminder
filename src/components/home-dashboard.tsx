@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BabySwitcher, type SwitchBaby } from "@/components/baby-switcher";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
+import { ExpiryBar } from "@/components/expiry-bar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type SheetPump } from "@/components/chiller-sheet";
@@ -515,7 +516,7 @@ export function HomeDashboard() {
                 <li key={item.id}>
                   <Link
                     href="/chiller"
-                    className={`${SOFT} flex items-center gap-3 px-4 py-3 ${expired ? "border border-danger" : ""}`}
+                    className={`${SOFT} relative flex items-center gap-3 overflow-hidden px-4 py-3 ${expired ? "border border-danger" : ""}`}
                   >
                     <CareIcon
                       name={item.type === "milk" ? "feed" : "chiller"}
@@ -529,6 +530,12 @@ export function HomeDashboard() {
                     ) : (
                       <span className="shrink-0 text-right text-sm text-muted">{left}</span>
                     )}
+                    <ExpiryBar
+                      storedAt={item.storedAt}
+                      expiresAt={item.expiresAt}
+                      now={now}
+                      label={t("chiller.expiryBar")}
+                    />
                   </Link>
                 </li>
               );
