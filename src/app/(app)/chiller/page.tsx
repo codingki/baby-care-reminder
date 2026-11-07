@@ -187,35 +187,39 @@ export default function ChillerPage() {
               ? t("home.expired")
               : t("home.timeLeft", { time: formatSpan(remaining) });
             return (
-              <li key={item.id} className="rounded-3xl border border-line bg-card px-5 py-4">
-                <Link
-                  href={`/chiller/${item.id}`}
-                  className="flex items-start gap-3"
-                >
+              <li
+                key={item.id}
+                className={`flex items-start gap-3 rounded-3xl border bg-card px-5 py-4 ${
+                  expired && filter === "active" ? "border-danger" : "border-line"
+                }`}
+              >
+                <Link href={`/chiller/${item.id}`} className="flex min-w-0 flex-1 items-start gap-3">
                   <CareIcon
                     name={item.type === "milk" ? "feed" : "chiller"}
-                    className="mt-0.5 h-5 w-5 shrink-0 text-accent"
+                    className={`mt-0.5 h-5 w-5 shrink-0 ${expired && filter === "active" ? "text-danger" : "text-accent"}`}
                   />
-                  <span>
-                    <p className="text-base font-semibold">{title}</p>
+                  <span className="min-w-0">
+                    <p className={`text-base font-semibold ${expired && filter === "active" ? "text-danger" : ""}`}>
+                      {title}
+                    </p>
                     <p className="mt-1 text-sm text-muted">{t(`chiller.${item.location}`)}</p>
                     {item.type === "milk" && item.note ? <p className="mt-1 text-sm">{item.note}</p> : null}
-                    <p className={`mt-1 text-sm ${expired ? "font-semibold text-accent" : ""}`}>{when}</p>
+                    <p className={`mt-1 text-sm ${expired && filter === "active" ? "font-semibold text-danger" : ""}`}>
+                      {filter === "active" && expired ? t("home.expiredBadge") : when}
+                    </p>
                   </span>
                 </Link>
                 {filter === "active" ? (
-                  <div className="mt-3">
-                    <ClearChiller
-                      id={item.id}
-                      type={item.type}
-                      onCleared={() => {
-                        undo.show([toUndo(item)]);
-                        setReload((value) => value + 1);
-                      }}
-                    />
-                  </div>
+                  <ClearChiller
+                    id={item.id}
+                    type={item.type}
+                    onCleared={() => {
+                      undo.show([toUndo(item)]);
+                      setReload((value) => value + 1);
+                    }}
+                  />
                 ) : item.clearedReason ? (
-                  <p className="mt-2 text-sm text-muted">{t(`chiller.${item.clearedReason}`)}</p>
+                  <p className="shrink-0 text-sm text-muted">{t(`chiller.${item.clearedReason}`)}</p>
                 ) : null}
               </li>
             );

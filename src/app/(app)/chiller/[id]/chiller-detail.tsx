@@ -122,7 +122,9 @@ export function ChillerDetail({ id }: { id: string }) {
             {item.clearedReason ? ` · ${t(`chiller.${item.clearedReason}`)}` : ""}
           </p>
         ) : (
-          <p className={`text-sm font-semibold ${expired ? "text-accent" : ""}`}>{relative}</p>
+          <p className={`text-sm font-semibold ${expired ? "text-danger" : ""}`}>
+            {expired ? t("home.expiredBadge") : relative}
+          </p>
         )}
         {item.clearedAt ? null : item.type === "pump_parts" ? (
           <PartsDisclaimer time={when} seen={care.partsDisclaimerSeen} />

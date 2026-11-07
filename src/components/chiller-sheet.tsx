@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
+import { PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
@@ -39,17 +40,45 @@ export function ChillerSheet({
   const [location, setLocation] = useState<(typeof LOCATIONS)[number]>("fridge");
   const [pumpId, setPumpId] = useState<string>("");
   const [status, setStatus] = useState<string | null>(null);
+  const [unit, setUnit] = useState("ml");
 
-  const selectedPump = pumps.some((pump) => pump.id === pumpId) ? pumpId : (pumps[0]?.id ?? "");
+  const onlyPump = pumps.length === 1 ? pumps[0].id : "";
+  const selectedPump = pumps.some((pump) => pump.id === pumpId) ? pumpId : onlyPump;
   const milkAmount = Number(milkMl);
   const milkReady = Number.isFinite(milkAmount) && milkAmount > 0;
 
+  function reset() {
+    setStep("choose");
+    setPending(false);
+    setMilkMl("");
+    setMilkNote("");
+    setLocation("fridge");
+    setPumpId("");
+    setStatus(null);
+  }
+
+  function close() {
+    reset();
+    onClose();
+  }
+
   useEffect(() => {
     if (!open) return;
+    void loadFamilyContext().then((context) => {
+      if (context?.unit) setUnit(context.unit);
+    });
     const panel = panelRef.current;
     panel?.querySelector<HTMLElement>("button, input, select, textarea")?.focus();
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      setStep("choose");
+      setPending(false);
+      setMilkMl("");
+      setMilkNote("");
+      setLocation("fridge");
+      setPumpId("");
+      setStatus(null);
+      onClose();
     }
     document.addEventListener("keydown", onKey);
     const previous = document.body.style.overflow;
@@ -62,11 +91,6 @@ export function ChillerSheet({
 
   if (!open) return null;
 
-  function close() {
-    setStep("choose");
-    onClose();
-  }
-
   async function storeMilk() {
     if (lock.current || !milkReady) return;
     lock.current = true;
@@ -77,7 +101,7 @@ export function ChillerSheet({
       const saved = await saveChillerItem({
         type: "milk",
         location,
-        volumeMl: Math.round(milkAmount),
+        volumeMl: volumeToMl(milkAmount, unit),
         pumpId: null,
         washByHours: context?.washByHours ?? 24,
         note: milkNote,
@@ -206,10 +230,11 @@ export function ChillerSheet({
                 min={1}
                 value={milkMl}
                 onChange={(event) => setMilkMl(event.target.value)}
-                className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-where">
+              className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
+            />
+          </label>
+          <PresetChips values={volumePresets(unit)} onPick={(value) => setMilkMl(String(value))} />
+          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-where">
               {t("pump.location")}
               <select
                 id="sheet-milk-where"
@@ -283,7 +308,8 @@ export function ChillerSheet({
                   onChange={(event) => setPumpId(event.target.value)}
                   className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
                 >
-                  {pumps.map((pump) => (
+                  {pumps.length === 1 ? null : <option value="" />}
+                {pumps.map((pump) => (
                     <option key={pump.id} value={pump.id}>
                       {pump.label}
                     </option>

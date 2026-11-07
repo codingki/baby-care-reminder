@@ -387,17 +387,29 @@ export function HomeDashboard() {
                 <Link
                   href={card.href}
                   aria-label={`${card.label}, ${line.text}`}
-                  className={`${SOFT} flex min-h-[7.25rem] flex-col items-center justify-center gap-1.5 px-1 py-3 text-center`}
+                  className={`${SOFT} flex min-h-[7.25rem] flex-col items-center justify-center gap-1.5 px-1 py-3 text-center ${
+                    line.overdue ? "border border-danger" : ""
+                  }`}
                 >
-                  <CareIcon name={card.icon} className="h-8 w-8 text-accent" />
+                  <CareIcon
+                    name={card.icon}
+                    className={`h-8 w-8 ${line.overdue ? "text-danger" : "text-accent"}`}
+                  />
                   <span
                     className={`max-w-full px-0.5 text-[11px] leading-tight font-semibold whitespace-nowrap ${
-                      line.overdue ? "text-accent" : "text-foreground"
+                      line.overdue ? "text-danger" : "text-foreground"
                     }`}
                   >
                     {line.text}
                   </span>
-                  <span className="text-xs font-medium text-accent">{card.label}</span>
+                  {line.overdue ? (
+                    <span className="rounded-full border border-danger px-1.5 text-[10px] font-semibold text-danger">
+                      {t("home.overdueBadge")}
+                    </span>
+                  ) : null}
+                  <span className={`text-xs font-medium ${line.overdue ? "text-danger" : "text-accent"}`}>
+                    {card.label}
+                  </span>
                 </Link>
               </li>
             );
@@ -429,20 +441,24 @@ export function HomeDashboard() {
                 now === null
                   ? "…"
                   : expired
-                    ? t("home.expired")
+                    ? t("home.expiredBadge")
                     : t("home.timeLeft", { time: formatSpan(new Date(item.expiresAt).getTime() - now) });
               return (
                 <li key={item.id}>
-                  <Link href="/chiller" className={`${SOFT} flex items-center gap-3 px-4 py-3`}>
+                  <Link
+                    href="/chiller"
+                    className={`${SOFT} flex items-center gap-3 px-4 py-3 ${expired ? "border border-danger" : ""}`}
+                  >
                     <CareIcon
                       name={item.type === "milk" ? "feed" : "chiller"}
-                      className="h-6 w-6 shrink-0 text-accent"
+                      className={`h-6 w-6 shrink-0 ${expired ? "text-danger" : "text-accent"}`}
                     />
-                    <p className="min-w-0 text-sm">
-                      <span className="font-semibold">{label}</span>
-                      <span className="text-muted"> · </span>
-                      <span className={expired ? "font-semibold text-accent" : "text-muted"}>{left}</span>
-                    </p>
+                    <p className={`min-w-0 flex-1 text-sm font-semibold ${expired ? "text-danger" : ""}`}>{label}</p>
+                    <span
+                      className={`shrink-0 text-right text-sm ${expired ? "font-semibold text-danger" : "text-muted"}`}
+                    >
+                      {left}
+                    </span>
                   </Link>
                 </li>
               );

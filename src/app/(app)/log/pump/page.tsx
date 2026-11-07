@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CareIcon } from "@/components/care-icon";
+import { MINUTE_PRESETS, PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
@@ -14,7 +15,6 @@ import { saveChillerItem, saveLog } from "@/lib/save-log";
 import type { Locale } from "@/i18n/locales";
 import {
   CHILLER_LOCATIONS,
-  defaultPumpId,
   markPumpUsed,
   partsExpiresAt,
   pumpLabel,
@@ -59,11 +59,18 @@ function PumpLog() {
   const [milkLocation, setMilkLocation] = useState<ChillerLocation>("fridge");
   const [addedIds, setAddedIds] = useState<string[]>([]);
   const [pending, setPending] = useState<"log" | "chiller" | null>(null);
+  const [unit, setUnit] = useState("ml");
   const lock = useRef(false);
 
-  const fallbackPumpId = defaultPumpId(care.pumps);
+  useEffect(() => {
+    void loadFamilyContext().then((context) => {
+      if (context?.unit) setUnit(context.unit);
+    });
+  }, []);
+
+  const onlyPumpId = care.pumps.length === 1 ? care.pumps[0].id : null;
   const activePumpId =
-    pumpId && care.pumps.some((pump) => pump.id === pumpId) ? pumpId : fallbackPumpId;
+    pumpId && care.pumps.some((pump) => pump.id === pumpId) ? pumpId : onlyPumpId;
   const selectedPump = care.pumps.find((pump) => pump.id === activePumpId) ?? null;
   const partsTime = formatWhen(partsExpiresAt(new Date(), care.washByHours).toISOString(), locale);
   const pumpedAmount = Number(pumpedMl);
@@ -84,7 +91,7 @@ function PumpLog() {
     try {
       const parsed = volume.trim() === "" ? null : Number(volume);
       const volumeMl =
-        parsed !== null && Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+        parsed !== null && Number.isFinite(parsed) && parsed > 0 ? volumeToMl(parsed, unit) : null;
       const context = await loadFamilyContext();
       const washByHours = context?.washByHours ?? care.washByHours;
       const ids: string[] = [];
@@ -106,7 +113,7 @@ function PumpLog() {
         const saved = await saveChillerItem({
           type: "milk",
           location: milkLocation,
-          volumeMl: volumeMl ?? Math.round(pumpedAmount),
+          volumeMl: volumeMl ?? volumeToMl(pumpedAmount, unit),
           pumpId: null,
           washByHours,
         });
@@ -134,7 +141,7 @@ function PumpLog() {
       const minutesValue = minutes.trim() === "" ? null : Math.round(Number(minutes) * 60);
       const result = await saveLog({
         kind: "pump",
-        amountMl: Math.round(pumpedAmount),
+        amountMl: volumeToMl(pumpedAmount, unit),
         durationSeconds: minutesValue && minutesValue > 0 ? minutesValue : null,
         pumpId: selectedPump.id,
       });
@@ -169,6 +176,7 @@ function PumpLog() {
           className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
         />
       </label>
+      <PresetChips values={volumePresets(unit)} onPick={(value) => setPumpedMl(String(value))} />
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pump-minutes">
         {t("pump.duration")}
         <input
@@ -181,6 +189,7 @@ function PumpLog() {
           className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
         />
       </label>
+      <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
       {care.pumps.length === 0 ? (
         <p className="text-sm leading-6">
           {t("pump.noPumps")}{" "}
@@ -197,6 +206,7 @@ function PumpLog() {
             onChange={(event) => setPumpId(event.target.value)}
             className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
           >
+            {care.pumps.length === 1 ? null : <option value="" />}
             {care.pumps.map((pump) => (
               <option key={pump.id} value={pump.id}>
                 {pumpLabel(pump)}
@@ -231,6 +241,7 @@ function PumpLog() {
                   className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
                 />
               </label>
+              <PresetChips values={volumePresets(unit)} onPick={(value) => setVolume(String(value))} />
               <p className="text-sm text-muted">{t("pump.milkOptional")}</p>
               <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="milk-location">
                 {t("pump.location")}

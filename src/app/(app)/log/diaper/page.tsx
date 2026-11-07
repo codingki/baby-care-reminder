@@ -116,7 +116,11 @@ export default function DiaperPage() {
         >
           <button
             type="button"
-            onClick={() => setKind(null)}
+            onClick={() => {
+              setKind(null);
+              setColor(null);
+              setAmount(null);
+            }}
             className="self-start text-sm font-semibold text-accent"
           >
             {t("common.back")}

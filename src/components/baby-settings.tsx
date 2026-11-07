@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SectionHeading } from "@/components/care-icon";
+import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { useSaveLock } from "@/components/use-save-lock";
 import { useI18n } from "@/i18n/provider";
@@ -185,6 +186,7 @@ export function BabySettings() {
                 onChange={(event) => setMinutes(event.target.value)}
                 className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
               />
+              <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
             </label>
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="diaper-interval">
               {t("settings.diaperInterval")}
@@ -199,6 +201,7 @@ export function BabySettings() {
                 onChange={(event) => setDiaperMinutes(event.target.value)}
                 className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
               />
+              <PresetChips values={MINUTE_PRESETS} onPick={(value) => setDiaperMinutes(String(value))} />
             </label>
           </div>
           <p className="text-sm leading-6 text-muted">{t("settings.feedIntervalHint")}</p>

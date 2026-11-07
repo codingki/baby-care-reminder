@@ -8,6 +8,7 @@
   --accent-foreground: #ffffff;
   --muted: #8b938e;
   --line: #e4e7e4;
+  --danger: #c4453c;
   color-scheme: light;
 }
 
@@ -19,6 +20,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-danger: var(--danger);
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 

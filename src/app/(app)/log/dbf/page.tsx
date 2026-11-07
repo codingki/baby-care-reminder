@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CareIcon } from "@/components/care-icon";
+import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
 import { useSaveLock } from "@/components/use-save-lock";
@@ -85,6 +86,7 @@ export default function DbfPage() {
           className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
         />
       </label>
+      <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
       <button
         type="button"
         onClick={() => void save()}

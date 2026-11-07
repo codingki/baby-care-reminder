@@ -154,7 +154,7 @@ export function ClearChiller({
 
   if (!confirming) {
     return (
-      <button type="button" onClick={() => setConfirming(true)} className="text-sm font-semibold text-accent">
+      <button type="button" onClick={() => setConfirming(true)} className="shrink-0 text-sm font-semibold text-danger">
         {t("chiller.clear")}
       </button>
     );

@@ -6,6 +6,7 @@ export type FamilyContext = {
   babyId: string | null;
   washByHours: number;
   suggestedMl: number | null;
+  unit: string;
 };
 
 export async function loadFamilyContext(): Promise<FamilyContext | null> {
@@ -25,7 +26,7 @@ export async function loadFamilyContext(): Promise<FamilyContext | null> {
   const [{ data: family }, { data: babies }] = await Promise.all([
     supabase
       .from("families")
-      .select("pump_parts_wash_by_hours")
+      .select("pump_parts_wash_by_hours, unit")
       .eq("id", membership.family_id)
       .maybeSingle(),
     supabase
@@ -43,5 +44,6 @@ export async function loadFamilyContext(): Promise<FamilyContext | null> {
     babyId: baby?.id ?? null,
     washByHours: family?.pump_parts_wash_by_hours ?? 24,
     suggestedMl: baby?.suggested_ml ?? null,
+    unit: family?.unit === "oz" ? "oz" : "ml",
   };
 }

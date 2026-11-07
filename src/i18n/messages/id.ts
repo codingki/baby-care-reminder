@@ -46,8 +46,10 @@ export const id = {
     seeAll: "Lihat semua",
     inRelative: "dalam {time}",
     overdue: "{time} terlambat",
+    overdueBadge: "Terlambat",
     timeLeft: "{time} lagi",
     expired: "kedaluwarsa",
+    expiredBadge: "Kedaluwarsa",
     recent: "Terbaru",
     suggestion: "{ml} ml setiap {time}",
     pediatrician: "Saran dokter anak yang utama.",
@@ -129,6 +131,7 @@ export const id = {
     title: "Minum",
     lede: "Jumlah dalam ml.",
     amount: "ml",
+    ounces: "oz",
   },
   dbf: {
     title: "DBF",

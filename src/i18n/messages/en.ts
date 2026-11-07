@@ -43,8 +43,10 @@ export const en = {
     seeAll: "See all",
     inRelative: "in {time}",
     overdue: "{time} overdue",
+    overdueBadge: "Overdue",
     timeLeft: "{time} left",
     expired: "expired",
+    expiredBadge: "Expired",
     recent: "Recent",
     suggestion: "{ml} ml every {time}",
     pediatrician: "Your pediatrician's advice comes first.",
@@ -126,6 +128,7 @@ export const en = {
     title: "Feed",
     lede: "Amount in ml.",
     amount: "ml",
+    ounces: "oz",
   },
   dbf: {
     title: "DBF",

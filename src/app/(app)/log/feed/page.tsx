@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CareIcon } from "@/components/care-icon";
+import { PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
 import { useSaveLock } from "@/components/use-save-lock";
@@ -15,17 +16,19 @@ export default function FeedPage() {
   const router = useRouter();
   const { pending, run } = useSaveLock();
   const [amount, setAmount] = useState("");
+  const [unit, setUnit] = useState("ml");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     void loadFamilyContext().then((context) => {
-      if (context?.suggestedMl) setAmount(String(context.suggestedMl));
+      if (context?.unit) setUnit(context.unit);
     });
   }, []);
 
   async function save() {
-    const ml = Number(amount);
-    if (!Number.isFinite(ml) || ml <= 0) return;
+    const entered = Number(amount);
+    if (!Number.isFinite(entered) || entered <= 0) return;
+    const ml = volumeToMl(entered, unit);
     setMessage(null);
     await run(async () => {
       const result = await saveLog({ kind: "feed", amountMl: Math.round(ml) });
@@ -51,7 +54,7 @@ export default function FeedPage() {
       icon={<CareIcon name="feed" className="h-8 w-8" />}
     >
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-ml">
-        {t("feed.amount")}
+        {unit === "oz" ? t("feed.ounces") : t("feed.amount")}
         <input
           id="feed-ml"
           type="number"
@@ -62,6 +65,7 @@ export default function FeedPage() {
           className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
         />
       </label>
+      <PresetChips values={volumePresets(unit)} onPick={(value) => setAmount(String(value))} />
       <button
         type="button"
         onClick={() => void save()}
