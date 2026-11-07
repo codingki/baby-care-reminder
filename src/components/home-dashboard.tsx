@@ -64,6 +64,8 @@ type LogRow = {
   durationSeconds: number | null;
   feedKind: string | null;
   breastSide: string | null;
+  poopColor: string | null;
+  poopAmount: string | null;
 };
 
 type LogKind = "diaper" | "feed" | "pump";
@@ -117,6 +119,8 @@ function asLog(id: string, row: Record<string, unknown>): LogRow | null {
     durationSeconds: typeof row.duration_seconds === "number" ? row.duration_seconds : null,
     feedKind: typeof row.feed_kind === "string" ? row.feed_kind : null,
     breastSide: typeof row.breast_side === "string" ? row.breast_side : null,
+    poopColor: typeof row.poop_color === "string" ? row.poop_color : null,
+    poopAmount: typeof row.poop_amount === "string" ? row.poop_amount : null,
   };
 }
 
@@ -200,7 +204,7 @@ export function HomeDashboard() {
         .maybeSingle(),
       supabase
         .from("logs")
-        .select("id, kind, occurred_at, amount_ml, diaper_kind, duration_seconds, feed_kind, breast_side")
+        .select("id, kind, occurred_at, amount_ml, diaper_kind, duration_seconds, feed_kind, breast_side, poop_color, poop_amount")
         .eq("family_id", familyId)
         .order("occurred_at", { ascending: false })
         .limit(8),
@@ -612,13 +616,35 @@ function titleKey(kind: LogKind): "home.diaper" | "home.feed" | "home.pump" {
   return "home.diaper";
 }
 
+function poopLabel(
+  value: string | null,
+  group: "color" | "amount",
+  t: (key: MessageKey, vars?: Record<string, string>) => string,
+) {
+  const colors = ["yellow", "green", "brown", "black", "red", "white"] as const;
+  const amounts = ["small", "medium", "large"] as const;
+  if (group === "color" && colors.some((color) => color === value)) return t(`diaper.${value as (typeof colors)[number]}`);
+  if (group === "amount" && amounts.some((amount) => amount === value)) {
+    return t(`diaper.${value as (typeof amounts)[number]}`);
+  }
+  return "";
+}
+
 function logDetail(log: LogRow, t: (key: MessageKey, vars?: Record<string, string>) => string) {
   if (log.kind === "diaper") {
-    if (log.diaperKind === "wet") return t("diaper.wet");
-    if (log.diaperKind === "dirty") return t("diaper.dirty");
-    if (log.diaperKind === "mixed") return t("diaper.both");
-    if (log.diaperKind === "dry") return t("diaper.dry");
-    return "";
+    const kind =
+      log.diaperKind === "wet"
+        ? t("diaper.wet")
+        : log.diaperKind === "dirty"
+          ? t("diaper.dirty")
+          : log.diaperKind === "mixed"
+            ? t("diaper.both")
+            : log.diaperKind === "dry"
+              ? t("diaper.dry")
+              : "";
+    const color = poopLabel(log.poopColor, "color", t);
+    const amount = poopLabel(log.poopAmount, "amount", t);
+    return [kind, color, amount].filter(Boolean).join(" · ");
   }
   if (log.kind === "feed" && log.feedKind === "breast") {
     const side = log.breastSide === "right" ? t("dbf.right") : t("dbf.left");

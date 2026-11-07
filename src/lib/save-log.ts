@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/client";
 export type LogInput = {
   kind: "diaper" | "feed" | "pump";
   diaperKind?: "wet" | "dirty" | "mixed";
+  poopColor?: "yellow" | "green" | "brown" | "black" | "red" | "white";
+  poopAmount?: "small" | "medium" | "large";
   feedKind?: "bottle" | "breast";
   breastSide?: "left" | "right";
   amountMl?: number;
@@ -51,6 +53,7 @@ export async function saveLog(input: LogInput): Promise<"synced" | "queued" | "n
   if (!context?.babyId) return "needs-family";
 
   const breast = input.kind === "feed" && input.feedKind === "breast";
+  const dirty = input.kind === "diaper" && (input.diaperKind === "dirty" || input.diaperKind === "mixed");
   const row: Record<string, unknown> = {
     baby_id: context.babyId,
     family_id: context.familyId,
@@ -60,6 +63,8 @@ export async function saveLog(input: LogInput): Promise<"synced" | "queued" | "n
     feed_kind: input.kind === "feed" ? (breast ? "breast" : "bottle") : null,
     breast_side: breast ? input.breastSide ?? null : null,
     diaper_kind: input.kind === "diaper" ? input.diaperKind : null,
+    poop_color: dirty ? input.poopColor ?? null : null,
+    poop_amount: dirty ? input.poopAmount ?? null : null,
     amount_ml: breast ? null : (input.amountMl ?? null),
     duration_seconds: input.durationSeconds ?? null,
     pump_id: input.kind === "pump" ? input.pumpId : null,
