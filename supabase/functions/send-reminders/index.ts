@@ -214,10 +214,15 @@ Deno.serve(async (request) => {
   }
 
   if (sentReminderIds.length > 0) {
-    await supabase.from("reminders").update({ notified_at: nowIso }).in("id", sentReminderIds);
+    const { error } = await supabase.from("reminders").update({ notified_at: nowIso }).in("id", sentReminderIds);
+    if (error) return new Response(error.message, { status: 500 });
   }
   if (sentMilkIds.length > 0) {
-    await supabase.from("chiller_items").update({ notified_at: nowIso }).in("id", sentMilkIds);
+    const { error } = await supabase
+      .from("chiller_items")
+      .update({ notified_at: nowIso })
+      .in("id", sentMilkIds);
+    if (error) return new Response(error.message, { status: 500 });
   }
 
   return Response.json({ sent, held });

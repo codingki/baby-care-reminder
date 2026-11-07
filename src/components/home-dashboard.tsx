@@ -594,7 +594,6 @@ export function HomeDashboard() {
         pumps={sheetPumps}
         babies={babies.map((entry) => ({ id: entry.id, name: entry.name }))}
         babyName={baby?.name ?? null}
-        selectedBabyId={baby?.id ?? null}
         onClose={closeLog}
         onSaved={refreshHome}
       />

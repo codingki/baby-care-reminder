@@ -500,7 +500,7 @@ export function PumpLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
           volumeMl: volumeMl ?? volumeToMl(pumpedAmount, unit),
           pumpId: null,
           washByHours,
-          babyId: context?.babyId ?? null,
+          babyId: null,
         });
         if (saved.status === "error") {
           setStatus(t("common.failed"));
