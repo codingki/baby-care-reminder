@@ -52,6 +52,20 @@ export default function FeedPage() {
       backHref="/"
       showLater={false}
       icon={<CareIcon name="feed" className="h-8 w-8" />}
+      footer={
+        <>
+          {message ? <p role="status">{message}</p> : null}
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={pending}
+            aria-busy={pending}
+            className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+          </button>
+        </>
+      }
     >
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-ml">
         {unit === "oz" ? t("feed.ounces") : t("feed.amount")}
@@ -66,16 +80,6 @@ export default function FeedPage() {
         />
       </label>
       <PresetChips values={volumePresets(unit)} onPick={(value) => setAmount(String(value))} />
-      <button
-        type="button"
-        onClick={() => void save()}
-        disabled={pending}
-        aria-busy={pending}
-        className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
-      >
-        {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-      </button>
-      {message ? <p role="status">{message}</p> : null}
     </Screen>
   );
 }

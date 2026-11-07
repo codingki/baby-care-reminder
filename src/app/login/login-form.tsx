@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Mark } from "@/components/mark";
+import { PhoneFrame } from "@/components/phone-frame";
 import { useI18n } from "@/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 import { safeNextPath } from "@/lib/safe-next-path";
@@ -56,8 +57,9 @@ export function LoginForm({
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center bg-background px-5 py-10 shadow-[0_0_0_1px_var(--line)]">
-      <div className="flex flex-col gap-6">
+    <PhoneFrame>
+    <main className="safe-x flex min-h-0 flex-1 flex-col overflow-y-auto bg-background pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
+      <div className="my-auto flex flex-col gap-6">
         <div className="flex items-center gap-3">
           <Mark className="h-12 w-12" />
           <p className="text-sm font-semibold tracking-[0.14em] text-muted uppercase">
@@ -100,5 +102,6 @@ export function LoginForm({
         <p className="text-sm leading-6 text-muted">{t("login.footnote")}</p>
       </div>
     </main>
+    </PhoneFrame>
   );
 }

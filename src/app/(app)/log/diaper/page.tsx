@@ -75,6 +75,22 @@ export default function DiaperPage() {
       backHref="/"
       showLater={false}
       icon={<CareIcon name="diaper" className="h-8 w-8" />}
+      footer={
+        kind === "dirty" || kind === "mixed" ? (
+          <>
+            {message ? <p role="status">{message}</p> : null}
+            <button
+              type="submit"
+              form="diaper-form"
+              disabled={pending}
+              aria-busy={pending}
+              className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
+            >
+              {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+            </button>
+          </>
+        ) : undefined
+      }
     >
       {kind === null || kind === "wet" ? (
         <div className="grid grid-cols-1 gap-3">
@@ -108,6 +124,7 @@ export default function DiaperPage() {
         </div>
       ) : (
         <form
+          id="diaper-form"
           className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
@@ -173,17 +190,9 @@ export default function DiaperPage() {
               })}
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={pending}
-            aria-busy={pending}
-            className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
-          >
-            {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-          </button>
         </form>
       )}
-      {message ? <p role="status">{message}</p> : null}
+      {kind === "dirty" || kind === "mixed" ? null : message ? <p role="status">{message}</p> : null}
     </Screen>
   );
 }

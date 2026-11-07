@@ -60,6 +60,20 @@ export default function WeightPage() {
       backHref="/"
       showLater={false}
       icon={<CareIcon name="weight" className="h-8 w-8" />}
+      footer={
+        <>
+          {message ? <p role="status">{message}</p> : null}
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={pending || !ready}
+            aria-busy={pending}
+            className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+          </button>
+        </>
+      }
     >
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-kg">
         {t("weight.kg")}
@@ -82,19 +96,9 @@ export default function WeightPage() {
           required
           value={date}
           onChange={(event) => setDate(event.target.value)}
-          className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
-        />
+        className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
+      />
       </label>
-      <button
-        type="button"
-        onClick={() => void save()}
-        disabled={pending || !ready}
-        aria-busy={pending}
-        className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
-      >
-        {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-      </button>
-      {message ? <p role="status">{message}</p> : null}
     </Screen>
   );
 }

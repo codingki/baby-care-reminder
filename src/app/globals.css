@@ -24,10 +24,29 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+html,
 body {
+  height: 100%;
+  overflow: hidden;
   background: var(--background);
+}
+
+body {
+  min-height: 100dvh;
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+input,
+textarea,
+select {
+  scroll-margin-top: 4.5rem;
+  scroll-margin-bottom: 6rem;
+}
+
+@utility safe-x {
+  padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
 }
 
 :focus-visible {

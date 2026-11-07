@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { SavingLabel } from "@/components/saving-label";
 import { useI18n } from "@/i18n/provider";
 import { markChillerCleared, markChillerRestored } from "@/lib/device-care";
@@ -85,8 +86,8 @@ export function ChillerUndoToast({
     if (ok) onDone();
   }
 
-  return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 mx-auto flex w-full max-w-md justify-center px-5">
+  const toast = (
+    <div className="pointer-events-none absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex justify-center safe-x">
       <div
         role="status"
         className="pointer-events-auto flex min-h-12 items-center gap-4 rounded-full bg-[#3d4441] px-4 text-sm text-white"
@@ -103,6 +104,9 @@ export function ChillerUndoToast({
       </div>
     </div>
   );
+  const frame = document.getElementById("app-frame");
+  if (!frame) return toast;
+  return createPortal(toast, frame);
 }
 
 export function ClearChiller({

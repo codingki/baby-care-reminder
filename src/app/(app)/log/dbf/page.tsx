@@ -52,6 +52,20 @@ export default function DbfPage() {
       backHref="/"
       showLater={false}
       icon={<CareIcon name="dbf" className="h-8 w-8" />}
+      footer={
+        <>
+          {message ? <p role="status">{message}</p> : null}
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={pending || !ready}
+            aria-busy={pending}
+            className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
+          >
+            {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+          </button>
+        </>
+      }
     >
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold">{t("dbf.side")}</p>
@@ -87,16 +101,6 @@ export default function DbfPage() {
         />
       </label>
       <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
-      <button
-        type="button"
-        onClick={() => void save()}
-        disabled={pending || !ready}
-        aria-busy={pending}
-        className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
-      >
-        {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-      </button>
-      {message ? <p role="status">{message}</p> : null}
     </Screen>
   );
 }

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Mark } from "@/components/mark";
+import { PhoneFrame } from "@/components/phone-frame";
+import { useAnySheetOpen } from "@/components/sheet-presence";
 import { useI18n } from "@/i18n/provider";
 import type { MessageKey } from "@/i18n/translate";
 
@@ -45,10 +47,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col bg-background shadow-[0_0_0_1px_var(--line)]">
+    <PhoneFrame>
       <a
         href="#content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-30 focus:rounded-full focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-foreground"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-40 focus:rounded-full focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-foreground"
       >
         {t("shell.skip")}
       </a>
@@ -56,27 +58,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         fallback={
           <>
             <BrandHeader />
-            <main
-              id="content"
-              className="flex-1 px-5 py-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
-            >
+            <main id="content" className="safe-x min-h-0 flex-1 overflow-y-auto py-5">
               {children}
             </main>
+            <BottomNav pathname={null} />
           </>
         }
       >
         <PathChrome>{children}</PathChrome>
       </Suspense>
-      <Suspense fallback={<BottomNav pathname={null} />}>
-        <ActiveBottomNav />
-      </Suspense>
-    </div>
+    </PhoneFrame>
   );
 }
 
 function PathChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const sheetOpen = useAnySheetOpen();
   const home = pathname === "/";
+  const log = pathname.startsWith("/log");
+  const hideNav = sheetOpen || log;
 
   return (
     <>
@@ -84,13 +84,16 @@ function PathChrome({ children }: { children: React.ReactNode }) {
       <main
         id="content"
         className={
-          home
-            ? "flex-1 px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
-            : "flex-1 px-5 py-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
+          log
+            ? "safe-x flex min-h-0 flex-1 flex-col overflow-y-auto pt-5 pb-5 max-sm:overflow-hidden max-sm:pb-0"
+            : home
+              ? "safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] pb-5"
+              : "safe-x min-h-0 flex-1 overflow-y-auto py-5"
         }
       >
         {children}
       </main>
+      {hideNav ? null : <BottomNav pathname={pathname} />}
     </>
   );
 }
@@ -99,7 +102,7 @@ function BrandHeader() {
   const { t } = useI18n();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-background/95 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
+    <header className="safe-x sticky top-0 z-20 shrink-0 border-b border-line bg-background/95 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
       <p className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">
         {t("shell.eyebrow")}
       </p>
@@ -111,20 +114,15 @@ function BrandHeader() {
   );
 }
 
-function ActiveBottomNav() {
-  const pathname = usePathname();
-  return <BottomNav pathname={pathname} />;
-}
-
 function BottomNav({ pathname }: { pathname: string | null }) {
   const { t } = useI18n();
 
   return (
     <nav
       aria-label={t("shell.navLabel")}
-      className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-line bg-card/95 backdrop-blur"
+      className="safe-x z-20 shrink-0 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
-      <ul className="grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
+      <ul className="grid grid-cols-4">
         {navItems.map((item) => {
           const active = pathname ? isActive(pathname, item.href) : false;
           return (

@@ -11,6 +11,7 @@ export function Screen({
   backHref,
   showLater = true,
   icon,
+  footer,
   children,
 }: {
   titleKey: MessageKey;
@@ -18,6 +19,7 @@ export function Screen({
   backHref?: string;
   showLater?: boolean;
   icon?: React.ReactNode;
+  footer?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const { locale, t } = useI18n();
@@ -26,8 +28,8 @@ export function Screen({
     document.title = `${t(titleKey)} · ${t("shell.brand")}`;
   }, [locale, t, titleKey]);
 
-  return (
-    <section className="flex flex-col gap-5">
+  const body = (
+    <>
       <header className="flex flex-col gap-2">
         {backHref ? (
           <Link href={backHref} className="text-sm font-semibold text-accent">
@@ -46,6 +48,21 @@ export function Screen({
           {t("common.later")}
         </p>
       ) : null}
+    </>
+  );
+
+  if (!footer) {
+    return <section className="flex flex-col gap-5">{body}</section>;
+  }
+
+  return (
+    <section className="flex flex-col gap-5 max-sm:min-h-0 max-sm:flex-1 max-sm:gap-0">
+      <div className="flex flex-col gap-5 max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-4">
+        {body}
+      </div>
+      <div className="flex flex-col gap-2 max-sm:shrink-0 max-sm:border-t max-sm:border-line max-sm:bg-background max-sm:pt-3 max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {footer}
+      </div>
     </section>
   );
 }

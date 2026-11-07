@@ -31,17 +31,7 @@ function formatWhen(iso: string, locale: Locale) {
 }
 
 export default function PumpPage() {
-  return (
-    <Screen
-      titleKey="pump.title"
-      ledeKey="pump.lede"
-      backHref="/"
-      showLater={false}
-      icon={<CareIcon name="pump" className="h-8 w-8" />}
-    >
-      <PumpLog />
-    </Screen>
-  );
+  return <PumpLog />;
 }
 
 function PumpLog() {
@@ -162,7 +152,42 @@ function PumpLog() {
     }
   }
 
+  const action = logged ? (
+    <button
+      type="button"
+      disabled={!canConfirm || pending !== null}
+      aria-busy={pending === "chiller"}
+      onClick={() => void confirm()}
+      className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
+    >
+      {pending === "chiller" ? <SavingLabel label={t("common.saving")} /> : t("pump.confirm")}
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => void logPump()}
+      disabled={!canLog || pending !== null}
+      aria-busy={pending === "log"}
+      className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
+    >
+      {pending === "log" ? <SavingLabel label={t("common.saving")} /> : t("pump.log")}
+    </button>
+  );
+
   return (
+    <Screen
+      titleKey="pump.title"
+      ledeKey="pump.lede"
+      backHref="/"
+      showLater={false}
+      icon={<CareIcon name="pump" className="h-8 w-8" />}
+      footer={
+        <>
+          {status ? <p role="status">{status}</p> : null}
+          {action}
+        </>
+      }
+    >
     <div className="flex flex-col gap-4">
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pumped-ml">
         {t("pump.amount")}
@@ -260,15 +285,6 @@ function PumpLog() {
               </label>
             </div>
           ) : null}
-          <button
-            type="button"
-            disabled={!canConfirm || pending !== null}
-            aria-busy={pending === "chiller"}
-            onClick={() => void confirm()}
-            className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-          >
-            {pending === "chiller" ? <SavingLabel label={t("common.saving")} /> : t("pump.confirm")}
-          </button>
           {addedIds.length > 0 ? (
             <div className="flex flex-col gap-2 text-sm">
               <p>{t("pump.added")}</p>
@@ -280,19 +296,9 @@ function PumpLog() {
             </div>
           ) : null}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => void logPump()}
-          disabled={!canLog || pending !== null}
-          aria-busy={pending === "log"}
-          className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-        >
-          {pending === "log" ? <SavingLabel label={t("common.saving")} /> : t("pump.log")}
-        </button>
-      )}
-      {status ? <p role="status">{status}</p> : null}
+      ) : null}
     </div>
+    </Screen>
   );
 }
 
