@@ -61,6 +61,7 @@ export const id = {
   },
   onboarding: {
     title: "Profil bayi",
+    familyTitle: "Keluarga Anda",
     lede: "Nama, tanggal lahir, jenis kelamin, dan berat bayi yang dibagi keluarga.",
     familyName: "Nama keluarga",
     saveFamily: "Buat keluarga",

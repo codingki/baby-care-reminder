@@ -87,7 +87,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <Screen titleKey="onboarding.title" ledeKey="onboarding.lede" backHref="/" showLater={false}>
+    <Screen titleKey={familyId ? "onboarding.title" : "onboarding.familyTitle"} ledeKey="onboarding.lede" backHref="/" showLater={false}>
       {familyId === null ? (
         <form
           className="flex flex-col gap-3"

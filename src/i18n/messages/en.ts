@@ -58,6 +58,7 @@ export const en = {
   },
   onboarding: {
     title: "Baby profile",
+    familyTitle: "Your family",
     lede: "Name, birth date, sex, and weight for the baby your family shares.",
     familyName: "Family name",
     saveFamily: "Create family",
