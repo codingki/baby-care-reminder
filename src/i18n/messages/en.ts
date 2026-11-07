@@ -39,6 +39,7 @@ export const en = {
     dbf: "DBF",
     weight: "Weight",
     nextUp: "Next up",
+    timeUntilDue: "Time until due",
     inChiller: "In the chiller",
     seeAll: "See all",
     inRelative: "in {time}",

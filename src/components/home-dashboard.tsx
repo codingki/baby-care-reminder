@@ -36,6 +36,9 @@ type HomeData = {
   diaperAt: string | null;
   feedAt: string | null;
   pumpAt: string | null;
+  diaperStart: string | null;
+  feedStart: string | null;
+  pumpStart: string | null;
   logs: LogRow[];
   chiller: ChillerRow[];
   pumps: OwnedPump[];
@@ -63,6 +66,9 @@ function blankHome(pumps: OwnedPump[]): HomeData {
     diaperAt: null,
     feedAt: null,
     pumpAt: null,
+    diaperStart: null,
+    feedStart: null,
+    pumpStart: null,
     logs: [],
     chiller: [],
     pumps,
@@ -183,6 +189,9 @@ export function HomeDashboard() {
   const [diaperAt, setDiaperAt] = useState<string | null>(null);
   const [feedAt, setFeedAt] = useState<string | null>(null);
   const [pumpAt, setPumpAt] = useState<string | null>(null);
+  const [diaperStart, setDiaperStart] = useState<string | null>(null);
+  const [feedStart, setFeedStart] = useState<string | null>(null);
+  const [pumpStart, setPumpStart] = useState<string | null>(null);
   const [chiller, setChiller] = useState<ChillerRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [pumps, setPumps] = useState<OwnedPump[]>([]);
@@ -313,6 +322,9 @@ export function HomeDashboard() {
       diaperAt: lastDiaper ? plus(lastDiaper, diaperInterval * 60 * 1000) : reminderFor("diaper"),
       feedAt: lastFeed ? plus(lastFeed, interval * 60 * 1000) : reminderFor("feed"),
       pumpAt: reminderFor("pump") ?? (lastPump ? plus(lastPump, CARE_MS) : null),
+      diaperStart: lastDiaper,
+      feedStart: lastFeed,
+      pumpStart: lastPump,
       logs: (recent.data ?? []).flatMap((row) => {
         const log = asLog(String(row.id), row as Record<string, unknown>);
         return log ? [log] : [];
@@ -337,6 +349,9 @@ export function HomeDashboard() {
         setDiaperAt(data.diaperAt);
         setFeedAt(data.feedAt);
         setPumpAt(data.pumpAt);
+        setDiaperStart(data.diaperStart);
+        setFeedStart(data.feedStart);
+        setPumpStart(data.pumpStart);
         setLogs(data.logs);
         setChiller(data.chiller);
         setPumps(data.pumps);
@@ -389,10 +404,11 @@ export function HomeDashboard() {
     icon: CareIconName;
     label: string;
     at: string | null;
+    start: string | null;
   }[] = [
-    { key: "diaper", icon: "diaper", label: t("home.diaper"), at: diaperAt },
-    { key: "feed", icon: "feed", label: t("home.feed"), at: feedAt },
-    { key: "pump", icon: "pump", label: t("home.pump"), at: pumpAt },
+    { key: "diaper", icon: "diaper", label: t("home.diaper"), at: diaperAt, start: diaperStart },
+    { key: "feed", icon: "feed", label: t("home.feed"), at: feedAt, start: feedStart },
+    { key: "pump", icon: "pump", label: t("home.pump"), at: pumpAt, start: pumpStart },
   ];
 
   const closeLog = useCallback(() => setLog(null), []);
@@ -404,6 +420,9 @@ export function HomeDashboard() {
     setDiaperAt(data.diaperAt);
     setFeedAt(data.feedAt);
     setPumpAt(data.pumpAt);
+    setDiaperStart(data.diaperStart);
+    setFeedStart(data.feedStart);
+    setPumpStart(data.pumpStart);
     setLogs(data.logs);
     setChiller(data.chiller);
     setPumps(data.pumps);
@@ -479,6 +498,14 @@ export function HomeDashboard() {
                   <span className={`text-xs font-medium ${line.overdue ? "text-danger" : "text-accent"}`}>
                     {card.label}
                   </span>
+                  {card.at && card.start ? (
+                    <ExpiryBar
+                      storedAt={card.start}
+                      expiresAt={card.at}
+                      now={now}
+                      label={t("home.timeUntilDue")}
+                    />
+                  ) : null}
                 </Button>
               </li>
             );

@@ -42,6 +42,7 @@ export const id = {
     dbf: "DBF",
     weight: "Berat",
     nextUp: "Berikutnya",
+    timeUntilDue: "Waktu hingga jadwal",
     inChiller: "Di chiller",
     seeAll: "Lihat semua",
     inRelative: "dalam {time}",

@@ -176,7 +176,6 @@ export function BabyPhotoField({
           id={inputId}
           type="file"
           accept="image/*"
-          capture="environment"
           className="sr-only"
           disabled={pending !== null}
           onChange={(event) => {
