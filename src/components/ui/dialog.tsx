@@ -8,6 +8,20 @@ import { appFrameElement } from "@/components/ui/use-app-frame"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
+function outsideTarget(event: { target: EventTarget | null; detail?: { originalEvent?: Event } }) {
+  const original = event.detail?.originalEvent?.target;
+  return original instanceof Element ? original : event.target instanceof Element ? event.target : null;
+}
+
+function staysOpen(target: Element | null) {
+  if (!target) return false;
+  return Boolean(
+    target.closest(
+      "[data-slot='select-content'], [data-radix-popper-content-wrapper], [data-radix-select-viewport], [data-sonner-toaster], [data-sonner-toast], [role='listbox']",
+    ),
+  );
+}
+
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -54,23 +68,81 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onPointerDownOutside,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const panel = React.useRef<HTMLDivElement>(null);
+  const dismiss = React.useRef<HTMLButtonElement>(null);
+  const drag = React.useRef<{ y: number; pointer: number } | null>(null);
+
+  function keepPortal(event: { preventDefault: () => void; target: EventTarget | null; detail?: { originalEvent?: Event } }) {
+    if (staysOpen(outsideTarget(event))) event.preventDefault();
+  }
+
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        onPointerDownOutside={(event) => {
+          keepPortal(event);
+          onPointerDownOutside?.(event);
+        }}
+        onInteractOutside={(event) => {
+          keepPortal(event);
+          onInteractOutside?.(event);
+        }}
         className={cn(
-          "pointer-events-none absolute inset-0 z-40 flex items-end justify-center outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom motion-reduce:animate-none sm:items-center sm:p-4 sm:data-[state=open]:zoom-in-95 sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=closed]:slide-out-to-bottom-0",
+          "pointer-events-auto absolute inset-0 z-40 flex items-end justify-center outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom motion-reduce:animate-none sm:items-center sm:p-4 sm:data-[state=open]:zoom-in-95 sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=closed]:slide-out-to-bottom-0",
           className
         )}
         {...props}
       >
-        <div className="pointer-events-auto relative flex max-h-[calc(100%-max(0.75rem,env(safe-area-inset-top))-env(safe-area-inset-bottom))] w-full flex-col overflow-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-h-[85dvh] sm:max-w-md sm:rounded-3xl">
+        <DialogPrimitive.Close
+          data-slot="dialog-backdrop"
+          aria-label="Close"
+          className="absolute inset-0"
+        />
+        <div
+          ref={panel}
+          className="pointer-events-auto relative z-10 flex max-h-[calc(100%-max(0.75rem,env(safe-area-inset-top))-env(safe-area-inset-bottom))] w-full flex-col overflow-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-h-[85dvh] sm:max-w-md sm:rounded-3xl"
+        >
+          <div
+            data-slot="dialog-handle"
+            className="flex shrink-0 justify-center pt-2 sm:hidden"
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              drag.current = { y: event.clientY, pointer: event.pointerId };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              const active = drag.current;
+              if (!active || active.pointer !== event.pointerId || !panel.current) return;
+              const next = Math.max(0, event.clientY - active.y);
+              panel.current.style.transform = next ? `translateY(${next}px)` : "";
+            }}
+            onPointerUp={(event) => {
+              const active = drag.current;
+              if (!active || active.pointer !== event.pointerId) return;
+              drag.current = null;
+              const distance = event.clientY - active.y;
+              if (panel.current) panel.current.style.transform = "";
+              if (distance > 72) dismiss.current?.click();
+            }}
+            onPointerCancel={() => {
+              drag.current = null;
+              if (panel.current) panel.current.style.transform = "";
+            }}
+          >
+            <span className="h-1 w-10 rounded-full bg-line" />
+          </div>
           {children}
+          <DialogPrimitive.Close ref={dismiss} className="sr-only">
+            Close
+          </DialogPrimitive.Close>
           {showCloseButton && (
             <DialogPrimitive.Close data-slot="dialog-close" asChild>
               <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">

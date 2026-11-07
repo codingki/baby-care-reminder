@@ -101,10 +101,10 @@ function PathChrome({ children }: { children: React.ReactNode }) {
           log
             ? "safe-x flex min-h-0 flex-1 flex-col overflow-y-auto pt-5 pb-5 max-sm:overflow-hidden max-sm:pb-0"
             : home
-              ? "safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] pb-5"
+              ? `safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] ${hideNav ? "pb-5" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`
               : bare
-                ? "safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1.25rem,env(safe-area-inset-top))] pb-5"
-                : "safe-x min-h-0 flex-1 overflow-y-auto py-5"
+                ? `safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1.25rem,env(safe-area-inset-top))] ${hideNav ? "pb-5" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`
+                : `safe-x min-h-0 flex-1 overflow-y-auto pt-5 ${hideNav ? "pb-5" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`
         }
       >
         {children}
@@ -136,7 +136,7 @@ function BottomNav({ pathname }: { pathname: string | null }) {
   return (
     <nav
       aria-label={t("shell.navLabel")}
-      className="safe-x z-20 shrink-0 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+      className="safe-x fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
       <ul className="grid grid-cols-4">
         {navItems.map((item) => {

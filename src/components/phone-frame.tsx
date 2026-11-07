@@ -10,18 +10,32 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const frame = ref.current;
     const viewport = window.visualViewport;
-    if (!frame || !viewport) return;
-
-    const apply = () => {
-      frame.style.height = `${viewport.height}px`;
-      frame.style.top = `${viewport.offsetTop}px`;
+    const release = () => {
+      if (frame) {
+        frame.style.height = "";
+        frame.style.top = "";
+      }
+      if (document.querySelector("[data-slot='dialog-content'][data-state='open']")) return;
+      const body = document.body;
+      body.style.removeProperty("overflow");
+      body.style.removeProperty("position");
+      body.style.removeProperty("top");
+      body.style.removeProperty("left");
+      body.style.removeProperty("right");
+      body.style.removeProperty("width");
+      body.style.removeProperty("padding-right");
+      body.removeAttribute("data-scroll-locked");
     };
-    apply();
-    viewport.addEventListener("resize", apply);
-    viewport.addEventListener("scroll", apply);
+    const onBlur = (event: FocusEvent) => {
+      if (!isField(event.target)) return;
+      window.setTimeout(release, 50);
+      window.setTimeout(release, 350);
+    };
+    document.addEventListener("focusout", onBlur);
+    viewport?.addEventListener("resize", release);
     return () => {
-      viewport.removeEventListener("resize", apply);
-      viewport.removeEventListener("scroll", apply);
+      document.removeEventListener("focusout", onBlur);
+      viewport?.removeEventListener("resize", release);
     };
   }, []);
 
@@ -51,7 +65,7 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
         ref.current = node;
         bindAppFrame(node);
       }}
-      className="fixed inset-x-0 top-0 z-10 mx-auto flex h-dvh w-full max-w-none flex-col overflow-hidden rounded-none bg-background sm:max-w-md sm:shadow-[0_0_0_1px_var(--line)]"
+      className="fixed inset-x-0 top-0 z-10 mx-auto flex h-dvh min-h-[100svh] w-full max-w-none flex-col rounded-none bg-background sm:max-w-md sm:shadow-[0_0_0_1px_var(--line)]"
     >
       {children}
       <Toaster />

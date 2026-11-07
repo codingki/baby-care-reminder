@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { safeNextPath } from "@/lib/safe-next-path";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 
-const PUBLIC_PREFIXES = ["/login", "/auth"];
+const PUBLIC_PREFIXES = ["/login", "/auth", "/shell-check"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some(

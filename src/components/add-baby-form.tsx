@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useI18n } from "@/i18n/provider";
 import { rememberBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
+
+function normalizeBirthDate(value: string) {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const parts = trimmed.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
+  if (!parts) return null;
+  const first = Number(parts[1]);
+  const second = Number(parts[2]);
+  const year = parts[3];
+  const month = first > 12 ? second : first;
+  const day = first > 12 ? first : second;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 const sexes = ["female", "male", "unspecified"] as const;
 
@@ -30,12 +45,16 @@ export function AddBabyForm({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function save() {
+  async function save(form: HTMLFormElement) {
     if (pending) return;
-    const kg = Number(weightKg);
+    const birthInput = form.querySelector<HTMLInputElement>("input[type='date']");
+    const birth = normalizeBirthDate(birthInput?.value || birthDate);
+    const kgText = weightKg.trim();
+    const kg = kgText === "" ? null : Number(kgText);
     const minutes = feedMinutes.trim() === "" ? null : Math.round(Number(feedMinutes));
-    if (!name.trim() || !birthDate || !Number.isFinite(kg) || kg <= 0 || (minutes !== null && minutes <= 0)) {
+    if (!familyId || !name.trim() || !birth || (kg !== null && (!Number.isFinite(kg) || kg <= 0)) || (minutes !== null && minutes <= 0)) {
       setError(t("onboarding.error"));
+      toast(t("onboarding.error"));
       return;
     }
     setPending(true);
@@ -46,17 +65,18 @@ export function AddBabyForm({
       .insert({
         family_id: familyId,
         name: name.trim(),
-        birth_date: birthDate,
+        birth_date: birth,
         sex,
-        weight_grams: Math.round(kg * 1000),
-        feeding_type: "bottle",
+        weight_grams: kg === null ? null : Math.round(kg * 1000),
         suggested_interval_minutes: minutes,
       })
       .select("id")
       .single();
     setPending(false);
     if (insertError || !data?.id) {
-      setError(t("onboarding.error"));
+      const message = insertError?.message || t("onboarding.error");
+      setError(message);
+      toast(message);
       return;
     }
     rememberBaby(familyId, data.id);
@@ -68,7 +88,7 @@ export function AddBabyForm({
       className="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
-        void save();
+        void save(event.currentTarget);
       }}
     >
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-name`}>
@@ -113,7 +133,6 @@ export function AddBabyForm({
           inputMode="decimal"
           min={0.1}
           step={0.01}
-          required
           value={weightKg}
           onChange={(event) => setWeightKg(event.target.value)}
         />

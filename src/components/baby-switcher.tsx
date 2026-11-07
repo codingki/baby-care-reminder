@@ -78,7 +78,16 @@ export function BabySwitcher({
         </span>
         <CareIcon name="chevron" className="h-5 w-5 shrink-0 text-muted" />
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) {
+            setAdding(false);
+            setCreated(null);
+          }
+        }}
+      >
         <DialogContent showCloseButton={false} onCloseAutoFocus={(event) => event.preventDefault()}>
           <div className="safe-x flex shrink-0 items-center justify-between gap-3 pt-4 pb-2">
             <DialogTitle className="text-lg font-semibold">{t("home.switchBaby")}</DialogTitle>
@@ -130,7 +139,10 @@ export function BabySwitcher({
               <AddBabyForm
                 familyId={familyId}
                 idPrefix="switch-baby"
-                onCreated={(baby) => setCreated({ id: baby.id, name: baby.name, path: null })}
+                onCreated={(baby) => {
+                  setCreated({ id: baby.id, name: baby.name, path: null });
+                  onChanged();
+                }}
               />
             ) : (
               <Button

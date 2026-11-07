@@ -84,6 +84,7 @@
 html,
 body {
   height: 100%;
+  min-height: 100svh;
   overflow: hidden;
   background: var(--background);
 }
@@ -97,6 +98,7 @@ body {
 input,
 textarea,
 select {
+  font-size: 16px;
   scroll-margin-top: 4.5rem;
   scroll-margin-bottom: 6rem;
 }
