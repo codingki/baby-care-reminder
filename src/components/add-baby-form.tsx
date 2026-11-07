@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/provider";
 import { rememberBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
@@ -71,23 +72,16 @@ export function AddBabyForm({
     >
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-name`}>
         {t("onboarding.name")}
-        <input
-          id={`${idPrefix}-name`}
-          required
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
-        />
+        <Input id={`${idPrefix}-name`} required value={name} onChange={(event) => setName(event.target.value)} />
       </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-birth`}>
         {t("onboarding.birthDate")}
-        <input
+        <Input
           id={`${idPrefix}-birth`}
           type="date"
           required
           value={birthDate}
           onChange={(event) => setBirthDate(event.target.value)}
-          className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
         />
       </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-sex`}>
@@ -107,7 +101,7 @@ export function AddBabyForm({
       </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-weight`}>
         {t("onboarding.weightKg")}
-        <input
+        <Input
           id={`${idPrefix}-weight`}
           type="number"
           inputMode="decimal"
@@ -116,12 +110,11 @@ export function AddBabyForm({
           required
           value={weightKg}
           onChange={(event) => setWeightKg(event.target.value)}
-          className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
         />
       </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-feed`}>
         {t("settings.feedInterval")}
-        <input
+        <Input
           id={`${idPrefix}-feed`}
           type="number"
           inputMode="numeric"
@@ -129,7 +122,6 @@ export function AddBabyForm({
           step={1}
           value={feedMinutes}
           onChange={(event) => setFeedMinutes(event.target.value)}
-          className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
         />
         <PresetChips values={MINUTE_PRESETS} onPick={(value) => setFeedMinutes(String(value))} />
       </label>

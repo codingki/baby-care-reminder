@@ -4,6 +4,7 @@ import { use, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -36,15 +37,9 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
 
   return (
     <Screen titleKey="family.joinTitle" ledeKey="family.joinLede" showLater={false}>
-      <button
-        type="button"
-        disabled={pending}
-        aria-busy={pending}
-        onClick={() => void accept()}
-        className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-      >
+      <Button type="button" disabled={pending} aria-busy={pending} onClick={() => void accept()}>
         {pending ? <SavingLabel label={t("common.saving")} /> : t("family.join")}
-      </button>
+      </Button>
       {note ? (
         <p role="alert" className="text-sm">
           {note}

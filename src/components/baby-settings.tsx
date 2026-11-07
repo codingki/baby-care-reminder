@@ -5,6 +5,8 @@ import Link from "next/link";
 import { SectionHeading } from "@/components/care-icon";
 import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useSaveLock } from "@/components/use-save-lock";
 import { useI18n } from "@/i18n/provider";
 import {
@@ -164,18 +166,18 @@ export function BabySettings() {
         >
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="baby-name">
             {t("settings.babyName")}
-            <input
+            <Input
               id="baby-name"
               required
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+              className="bg-background px-3"
             />
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-interval">
               {t("settings.feedInterval")}
-              <input
+              <Input
                 id="feed-interval"
                 type="number"
                 inputMode="numeric"
@@ -184,13 +186,13 @@ export function BabySettings() {
                 required
                 value={minutes}
                 onChange={(event) => setMinutes(event.target.value)}
-                className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+                className="bg-background px-3"
               />
               <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
             </label>
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="diaper-interval">
               {t("settings.diaperInterval")}
-              <input
+              <Input
                 id="diaper-interval"
                 type="number"
                 inputMode="numeric"
@@ -199,21 +201,16 @@ export function BabySettings() {
                 required
                 value={diaperMinutes}
                 onChange={(event) => setDiaperMinutes(event.target.value)}
-                className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+                className="bg-background px-3"
               />
               <PresetChips values={MINUTE_PRESETS} onPick={(value) => setDiaperMinutes(String(value))} />
             </label>
           </div>
           <p className="text-sm leading-6 text-muted">{t("settings.feedIntervalHint")}</p>
           <p className="text-sm leading-6 text-muted">{t("settings.diaperIntervalHint")}</p>
-          <button
-            type="submit"
-            disabled={pending}
-            aria-busy={pending}
-            className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-          >
+          <Button type="submit" disabled={pending} aria-busy={pending}>
             {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-          </button>
+          </Button>
         </form>
       ) : null}
       {note ? (

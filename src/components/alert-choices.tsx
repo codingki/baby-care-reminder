@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CareIcon, SectionHeading } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
+import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
@@ -93,13 +94,11 @@ export function AlertChoices() {
             <CareIcon name={icon} className="h-5 w-5 text-accent" />
             {t(label)}
           </span>
-          <input
-            type="checkbox"
-            role="switch"
+          <Switch
             checked={values[field]}
             disabled={pending}
-            onChange={(event) => void save(field, event.target.checked)}
-            className="h-6 w-11 accent-[#5f7f6c]"
+            onCheckedChange={(checked) => void save(field, checked)}
+            className="h-6 w-11"
           />
         </label>
       ))}

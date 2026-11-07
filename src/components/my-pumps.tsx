@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { SectionHeading } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import { addOwnedPump, getCareState, pumpLabel, removeOwnedPump, replacePumps } from "@/lib/device-care";
@@ -138,32 +140,26 @@ export function MyPumps() {
       {choice === "custom" ? (
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="custom-pump">
           {t("settings.customName")}
-          <input
+          <Input
             id="custom-pump"
             value={customName}
             onChange={(event) => setCustomName(event.target.value)}
-            className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+            className="bg-background px-3"
           />
         </label>
       ) : null}
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pump-nickname">
         {t("settings.nickname")}
-        <input
+        <Input
           id="pump-nickname"
           value={nickname}
           onChange={(event) => setNickname(event.target.value)}
-          className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+          className="bg-background px-3"
         />
       </label>
-      <button
-        type="button"
-        onClick={() => void addPump()}
-        disabled={pending !== null}
-        aria-busy={pending === "add"}
-        className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-      >
+      <Button type="button" onClick={() => void addPump()} disabled={pending !== null} aria-busy={pending === "add"}>
         {pending === "add" ? <SavingLabel label={t("common.saving")} /> : t("settings.addPump")}
-      </button>
+      </Button>
       {note ? (
         <p role="status" className="text-sm">
           {note}

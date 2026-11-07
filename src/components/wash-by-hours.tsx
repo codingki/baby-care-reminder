@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SectionHeading } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
+import { Input } from "@/components/ui/input";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import { clampWashByHours, setWashByHours } from "@/lib/device-care";
@@ -69,7 +70,7 @@ export function WashByHours() {
       <p className="text-base font-semibold">{t("settings.washByHours", { hours: String(washByHours) })}</p>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="wash-by-hours">
         {t("settings.washByHint")}
-        <input
+        <Input
           id="wash-by-hours"
           type="number"
           inputMode="numeric"
@@ -78,7 +79,7 @@ export function WashByHours() {
           step={1}
           value={washByHours}
           onChange={(event) => void change(Number(event.target.value))}
-          className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+          className="bg-background px-3"
         />
       </label>
       {note ? (

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Mark } from "@/components/mark";
 import { PhoneFrame } from "@/components/phone-frame";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 import { safeNextPath } from "@/lib/safe-next-path";
@@ -73,7 +75,7 @@ export function LoginForm({
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="email">
             {t("login.emailLabel")}
-            <input
+            <Input
               id="email"
               name="email"
               type="email"
@@ -83,16 +85,11 @@ export function LoginForm({
               value={email}
               placeholder={t("login.emailPlaceholder")}
               onChange={(event) => setEmail(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
             />
           </label>
-          <button
-            type="submit"
-            disabled={status === "sending"}
-            className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-70"
-          >
+          <Button type="submit" disabled={status === "sending"}>
             {status === "sending" ? t("login.sending") : t("login.submit")}
-          </button>
+          </Button>
           {message ? (
             <p className="text-sm leading-6" role="status">
               {message}

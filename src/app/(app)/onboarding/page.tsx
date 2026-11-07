@@ -8,6 +8,7 @@ import { CareIcon } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -96,22 +97,16 @@ export default function OnboardingPage() {
         >
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="family-name">
             {t("onboarding.familyName")}
-            <input
+            <Input
               id="family-name"
               required
               value={familyName}
               onChange={(event) => setFamilyName(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
             />
           </label>
-          <button
-            type="submit"
-            disabled={pending}
-            aria-busy={pending}
-            className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
-          >
+          <Button type="submit" disabled={pending} aria-busy={pending}>
             {pending ? <SavingLabel label={t("common.saving")} /> : t("onboarding.saveFamily")}
-          </button>
+          </Button>
         </form>
       ) : (
         <AddBabyForm

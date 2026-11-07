@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChillerUndoToast, ClearChiller, useChillerUndo, type UndoItem } from "@/components/clear-chiller";
 import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
@@ -103,42 +105,31 @@ export default function ChillerPage() {
       showLater={false}
       icon={<CareIcon name="chiller" className="h-8 w-8" />}
     >
-      <div className="grid grid-cols-2 gap-2" role="group" aria-label={t("chiller.title")}>
-        <button
-          type="button"
-          aria-pressed={filter === "active"}
-          onClick={() => setFilter("active")}
-          className={`min-h-12 rounded-2xl text-sm font-semibold ${
-            filter === "active" ? "bg-accent text-accent-foreground" : "border border-line bg-card"
-          }`}
-        >
+      <ToggleGroup
+        type="single"
+        value={filter}
+        spacing={2}
+        className="grid w-full grid-cols-2 gap-2"
+        aria-label={t("chiller.title")}
+        onValueChange={(next) => {
+          if (next === "active" || next === "cleared") setFilter(next);
+        }}
+      >
+        <ToggleGroupItem value="active" size="lg" className="w-full">
           {t("home.inChiller")}
-        </button>
-        <button
-          type="button"
-          aria-pressed={filter === "cleared"}
-          onClick={() => setFilter("cleared")}
-          className={`min-h-12 rounded-2xl text-sm font-semibold ${
-            filter === "cleared" ? "bg-accent text-accent-foreground" : "border border-line bg-card"
-          }`}
-        >
+        </ToggleGroupItem>
+        <ToggleGroupItem value="cleared" size="lg" className="w-full">
           {t("chiller.cleared")}
-        </button>
-      </div>
+        </ToggleGroupItem>
+      </ToggleGroup>
       {filter === "active" && expiredMilk.length > 0 ? (
         <div className="flex flex-col gap-2">
           {clearAllConfirm ? (
             <>
               <p className="text-sm text-muted">{t("chiller.clearAllConfirm")}</p>
-              <button
-                type="button"
-                disabled={clearAllPending}
-                aria-busy={clearAllPending}
-                onClick={() => void clearExpired()}
-                className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-              >
+              <Button type="button" disabled={clearAllPending} aria-busy={clearAllPending} onClick={() => void clearExpired()}>
                 {clearAllPending ? <SavingLabel label={t("common.saving")} /> : t("chiller.discarded")}
-              </button>
+              </Button>
               <button
                 type="button"
                 disabled={clearAllPending}
@@ -149,16 +140,16 @@ export default function ChillerPage() {
               </button>
             </>
           ) : (
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => {
                 setClearAllError(null);
                 setClearAllConfirm(true);
               }}
-              className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold"
             >
               {t("chiller.clearAll")}
-            </button>
+            </Button>
           )}
           {clearAllError ? (
             <p role="alert" className="text-sm">

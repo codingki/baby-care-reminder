@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { CareIcon, SectionHeading } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
 import { loadFamilyContext } from "@/lib/family-context";
@@ -181,23 +184,18 @@ export function ReminderSettings() {
         <li>{t("settings.iosBody")}</li>
       </ol>
       {installPrompt ? (
-        <button
-          type="button"
-          onClick={() => void installPrompt.prompt()}
-          className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold"
-        >
+        <Button type="button" variant="outline" onClick={() => void installPrompt.prompt()}>
           {t("settings.install")}
-        </button>
+        </Button>
       ) : null}
-      <button
+      <Button
         type="button"
         onClick={() => void run("push", enableNotifications)}
         disabled={pending !== null}
         aria-busy={pending === "push"}
-        className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
       >
         {pending === "push" ? <SavingLabel label={t("common.saving")} /> : t("settings.enableNotifications")}
-      </button>
+      </Button>
 
       <div className="flex flex-col gap-3 border-t border-line pt-4">
         <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -206,45 +204,39 @@ export function ReminderSettings() {
         </h3>
         <label className="flex min-h-12 items-center justify-between gap-3 text-base font-semibold">
           <span>{t("settings.quietHours")}</span>
-          <input
-            type="checkbox"
-            role="switch"
-            checked={enabled}
-            onChange={(event) => setEnabled(event.target.checked)}
-            className="h-6 w-11 accent-[#5f7f6c]"
-          />
+          <Switch checked={enabled} onCheckedChange={setEnabled} className="h-6 w-11" />
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="quiet-start">
             {t("settings.quietStart")}
-            <input
+            <Input
               id="quiet-start"
               type="time"
               value={start}
               onChange={(event) => setStart(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+              className="bg-background px-3"
             />
           </label>
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="quiet-end">
             {t("settings.quietEnd")}
-            <input
+            <Input
               id="quiet-end"
               type="time"
               value={end}
               onChange={(event) => setEnd(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+              className="bg-background px-3"
             />
           </label>
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => void run("quiet", saveQuietHours)}
           disabled={pending !== null}
           aria-busy={pending === "quiet"}
-          className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold disabled:opacity-50"
         >
           {pending === "quiet" ? <SavingLabel label={t("common.saving")} /> : t("settings.quietSave")}
-        </button>
+        </Button>
       </div>
 
       <div className="flex flex-col gap-3 border-t border-line pt-4">
@@ -257,29 +249,29 @@ export function ReminderSettings() {
         ) : (
           <p className="text-sm text-muted">{t("settings.snoozeDetail")}</p>
         )}
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => void run("snooze", snooze)}
           disabled={pending !== null}
           aria-busy={pending === "snooze"}
-          className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold disabled:opacity-50"
         >
           {pending === "snooze" ? (
             <SavingLabel label={t("common.saving")} />
           ) : (
             t("settings.snoozeNow", { minutes: String(snoozeMinutes) })
           )}
-        </button>
+        </Button>
         {snoozed ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => void run("clear", clearSnooze)}
             disabled={pending !== null}
             aria-busy={pending === "clear"}
-            className="min-h-12 rounded-2xl px-4 text-base font-semibold text-accent disabled:opacity-50"
           >
             {pending === "clear" ? <SavingLabel label={t("common.saving")} /> : t("settings.clearSnooze")}
-          </button>
+          </Button>
         ) : null}
       </div>
       {note ? (

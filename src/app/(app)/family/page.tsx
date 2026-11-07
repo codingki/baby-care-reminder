@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { SavingLabel } from "@/components/saving-label";
 import { BabyProfile } from "@/components/baby-profile";
 import { Screen } from "@/components/screen";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
@@ -190,22 +192,11 @@ export default function FamilyPage() {
           </ul>
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="display-name">
             {t("family.yourName")}
-            <input
-              id="display-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
-            />
+            <Input id="display-name" value={name} onChange={(event) => setName(event.target.value)} className="px-3" />
           </label>
-          <button
-            type="button"
-            onClick={() => void saveName()}
-            disabled={pending !== null}
-            aria-busy={pending === "name"}
-            className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold disabled:opacity-50"
-          >
+          <Button type="button" variant="outline" onClick={() => void saveName()} disabled={pending !== null} aria-busy={pending === "name"}>
             {pending === "name" ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-          </button>
+          </Button>
           {role && role !== "viewer" ? (
             <div className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
               <h2 className="text-sm font-semibold">{t("family.invite")}</h2>
@@ -222,15 +213,9 @@ export default function FamilyPage() {
                   <option value="viewer">{t("family.viewer")}</option>
                 </select>
               </label>
-              <button
-                type="button"
-                onClick={() => void createInvite()}
-                disabled={pending !== null}
-                aria-busy={pending === "invite"}
-                className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-              >
+              <Button type="button" onClick={() => void createInvite()} disabled={pending !== null} aria-busy={pending === "invite"}>
                 {pending === "invite" ? <SavingLabel label={t("common.saving")} /> : t("family.create")}
-              </button>
+              </Button>
               {link ? (
                 <button type="button" onClick={() => void copy(link)} className="text-left text-sm font-semibold text-accent">
                   {link}

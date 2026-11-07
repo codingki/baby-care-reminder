@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CareIcon } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -29,12 +30,12 @@ export function SignOutButton() {
 
   return (
     <div className="flex flex-col gap-2">
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={signOut}
         disabled={pending}
         aria-busy={pending}
-        className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-semibold"
       >
         {pending ? (
           <SavingLabel label={t("settings.signingOut")} />
@@ -44,7 +45,7 @@ export function SignOutButton() {
             {t("settings.signOut")}
           </span>
         )}
-      </button>
+      </Button>
       {message ? (
         <p className="text-sm text-foreground" role="alert">
           {message}
