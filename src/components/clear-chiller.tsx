@@ -1,11 +1,109 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SavingLabel } from "@/components/saving-label";
 import { useI18n } from "@/i18n/provider";
-import { markChillerCleared } from "@/lib/device-care";
+import { markChillerCleared, markChillerRestored } from "@/lib/device-care";
 import type { ClearReason } from "@/lib/chiller-live";
 import { createClient } from "@/lib/supabase/client";
+
+export type UndoItem = {
+  id: string;
+  type: "milk" | "pump_parts";
+  expiresAt: string;
+};
+
+export function useChillerUndo() {
+  const [items, setItems] = useState<UndoItem[] | null>(null);
+  const timer = useRef<number | null>(null);
+
+  function show(next: UndoItem[]) {
+    if (timer.current) window.clearTimeout(timer.current);
+    setItems(next);
+    timer.current = window.setTimeout(() => setItems(null), 5000);
+  }
+
+  function dismiss() {
+    if (timer.current) window.clearTimeout(timer.current);
+    setItems(null);
+  }
+
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  return { items, show, dismiss };
+}
+
+export async function restoreChillerItems(items: UndoItem[]) {
+  if (items.length === 0) return true;
+  const supabase = createClient();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("chiller_items")
+    .update({ cleared_at: null, cleared_reason: null, cleared_by: null })
+    .in(
+      "id",
+      items.map((item) => item.id),
+    );
+  if (error) return false;
+  const expiredMilk = items.filter(
+    (item) => item.type === "milk" && new Date(item.expiresAt).getTime() <= Date.now(),
+  );
+  if (expiredMilk.length > 0) {
+    await supabase
+      .from("chiller_items")
+      .update({ notified_at: now })
+      .in(
+        "id",
+        expiredMilk.map((item) => item.id),
+      );
+  }
+  for (const item of items) markChillerRestored(item.id);
+  return true;
+}
+
+export function ChillerUndoToast({
+  items,
+  onDone,
+}: {
+  items: UndoItem[] | null;
+  onDone: () => void;
+}) {
+  const { t } = useI18n();
+  const [pending, setPending] = useState(false);
+  if (!items || items.length === 0) return null;
+
+  async function undo() {
+    if (pending || !items) return;
+    setPending(true);
+    const ok = await restoreChillerItems(items);
+    setPending(false);
+    if (ok) onDone();
+  }
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 mx-auto flex w-full max-w-md justify-center px-5">
+      <div
+        role="status"
+        className="pointer-events-auto flex min-h-12 items-center gap-4 rounded-full bg-[#3d4441] px-4 text-sm text-white"
+      >
+        <span>{t("chiller.cleared")}</span>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => void undo()}
+          className="font-semibold text-white disabled:opacity-50"
+        >
+          {pending ? <SavingLabel label={t("common.saving")} /> : t("chiller.undo")}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function ClearChiller({
   id,

@@ -210,6 +210,16 @@ export function replacePumps(pumps: OwnedPump[]) {
   writeCare({ ...current, pumps });
 }
 
+export function markChillerRestored(id: string) {
+  const current = readCare();
+  writeCare({
+    ...current,
+    items: current.items.map((item) =>
+      item.id === id ? { ...item, clearedAt: null, clearedReason: null } : item,
+    ),
+  });
+}
+
 export function markChillerCleared(
   id: string,
   clearedAt: string,

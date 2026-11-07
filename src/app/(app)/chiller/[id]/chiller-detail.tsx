@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CareIcon } from "@/components/care-icon";
-import { ClearChiller } from "@/components/clear-chiller";
+import { ChillerUndoToast, ClearChiller, useChillerUndo } from "@/components/clear-chiller";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
@@ -27,6 +27,7 @@ export function ChillerDetail({ id }: { id: string }) {
   const [now, setNow] = useState(nowMs);
   const [item, setItem] = useState<LiveChillerItem | null>(null);
   const [state, setState] = useState<"loading" | "ready">("loading");
+  const undo = useChillerUndo();
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(nowMs()), 30000);
@@ -132,16 +133,26 @@ export function ChillerDetail({ id }: { id: string }) {
           <ClearChiller
             id={item.id}
             type={item.type}
-            onCleared={(reason) =>
+            onCleared={(reason) => {
+              undo.show([{ id: item.id, type: item.type, expiresAt: item.expiresAt }]);
               setItem({
                 ...item,
                 clearedAt: new Date().toISOString(),
                 clearedReason: reason,
-              })
-            }
+              });
+            }}
           />
         )}
       </div>
+      <ChillerUndoToast
+        items={undo.items}
+        onDone={() => {
+          undo.dismiss();
+          setItem((current) =>
+            current ? { ...current, clearedAt: null, clearedReason: null } : current,
+          );
+        }}
+      />
     </Screen>
   );
 }
