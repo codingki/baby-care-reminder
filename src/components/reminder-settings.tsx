@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { CareIcon, SectionHeading } from "@/components/care-icon";
+import { SavingLabel } from "@/components/saving-label";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
 import { loadFamilyContext } from "@/lib/family-context";
@@ -28,6 +30,8 @@ export function ReminderSettings() {
   const [snoozeMinutes, setSnoozeMinutes] = useState(15);
   const [note, setNote] = useState<string | null>(null);
   const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(null);
+  const [pending, setPending] = useState<"push" | "quiet" | "snooze" | "clear" | null>(null);
+  const lock = useRef(false);
 
   useEffect(() => {
     const onPrompt = (event: Event) => {
@@ -61,6 +65,18 @@ export function ReminderSettings() {
       setSnoozeMinutes(row.snooze_minutes || 15);
     })();
   }, []);
+
+  async function run(action: "push" | "quiet" | "snooze" | "clear", task: () => Promise<void>) {
+    if (lock.current) return;
+    lock.current = true;
+    setPending(action);
+    try {
+      await task();
+    } finally {
+      lock.current = false;
+      setPending(null);
+    }
+  }
 
   async function enableNotifications() {
     const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -157,7 +173,7 @@ export function ReminderSettings() {
 
   return (
     <section className="flex flex-col gap-4 rounded-3xl border border-line bg-card p-4">
-      <h2 className="text-sm font-semibold">{t("settings.notifications")}</h2>
+      <SectionHeading icon="bell">{t("settings.notifications")}</SectionHeading>
       <p className="text-sm leading-6 text-muted">{t("settings.notificationsHint")}</p>
       <ol className="flex flex-col gap-2 text-sm leading-6">
         <li>{t("settings.installHint")}</li>
@@ -175,14 +191,19 @@ export function ReminderSettings() {
       ) : null}
       <button
         type="button"
-        onClick={() => void enableNotifications()}
-        className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground"
+        onClick={() => void run("push", enableNotifications)}
+        disabled={pending !== null}
+        aria-busy={pending === "push"}
+        className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
       >
-        {t("settings.enableNotifications")}
+        {pending === "push" ? <SavingLabel label={t("common.saving")} /> : t("settings.enableNotifications")}
       </button>
 
       <div className="flex flex-col gap-3 border-t border-line pt-4">
-        <h3 className="text-sm font-semibold">{t("settings.quietHours")}</h3>
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <CareIcon name="clock" className="h-4 w-4 text-accent" />
+          {t("settings.quietHours")}
+        </h3>
         <label className="flex min-h-12 items-center justify-between gap-3 text-base font-semibold">
           <span>{t("settings.quietHours")}</span>
           <input
@@ -217,15 +238,20 @@ export function ReminderSettings() {
         </div>
         <button
           type="button"
-          onClick={() => void saveQuietHours()}
-          className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold"
+          onClick={() => void run("quiet", saveQuietHours)}
+          disabled={pending !== null}
+          aria-busy={pending === "quiet"}
+          className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold disabled:opacity-50"
         >
-          {t("settings.quietSave")}
+          {pending === "quiet" ? <SavingLabel label={t("common.saving")} /> : t("settings.quietSave")}
         </button>
       </div>
 
       <div className="flex flex-col gap-3 border-t border-line pt-4">
-        <h3 className="text-sm font-semibold">{t("settings.snooze")}</h3>
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <CareIcon name="timer" className="h-4 w-4 text-accent" />
+          {t("settings.snooze")}
+        </h3>
         {snoozed && snoozeUntil ? (
           <p className="text-sm">{t("settings.snoozed", { time: clock(snoozeUntil, locale) })}</p>
         ) : (
@@ -233,18 +259,26 @@ export function ReminderSettings() {
         )}
         <button
           type="button"
-          onClick={() => void snooze()}
-          className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold"
+          onClick={() => void run("snooze", snooze)}
+          disabled={pending !== null}
+          aria-busy={pending === "snooze"}
+          className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold disabled:opacity-50"
         >
-          {t("settings.snoozeNow", { minutes: String(snoozeMinutes) })}
+          {pending === "snooze" ? (
+            <SavingLabel label={t("common.saving")} />
+          ) : (
+            t("settings.snoozeNow", { minutes: String(snoozeMinutes) })
+          )}
         </button>
         {snoozed ? (
           <button
             type="button"
-            onClick={() => void clearSnooze()}
-            className="min-h-12 rounded-2xl px-4 text-base font-semibold text-accent"
+            onClick={() => void run("clear", clearSnooze)}
+            disabled={pending !== null}
+            aria-busy={pending === "clear"}
+            className="min-h-12 rounded-2xl px-4 text-base font-semibold text-accent disabled:opacity-50"
           >
-            {t("settings.clearSnooze")}
+            {pending === "clear" ? <SavingLabel label={t("common.saving")} /> : t("settings.clearSnooze")}
           </button>
         ) : null}
       </div>

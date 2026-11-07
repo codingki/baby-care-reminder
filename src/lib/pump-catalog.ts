@@ -11,6 +11,7 @@ export const PUMP_CATALOG: readonly CatalogPump[] = [
   { id: "medela-swing-maxi", brand: "Medela", model: "Swing Maxi" },
   { id: "medela-solo", brand: "Medela", model: "Solo" },
   { id: "medela-harmony", brand: "Medela", model: "Harmony" },
+  { id: "medela-motion-in-bra", brand: "Medela", model: "Motion In-Bra" },
   { id: "momcozy-s12-pro", brand: "Momcozy", model: "S12 Pro" },
   { id: "momcozy-s9-pro", brand: "Momcozy", model: "S9 Pro" },
   { id: "momcozy-m5", brand: "Momcozy", model: "M5" },
@@ -18,6 +19,11 @@ export const PUMP_CATALOG: readonly CatalogPump[] = [
   { id: "momcozy-v1-pro", brand: "Momcozy", model: "V1 Pro" },
   { id: "momcozy-v2-pro", brand: "Momcozy", model: "V2 Pro" },
   { id: "momcozy-air-1", brand: "Momcozy", model: "Air 1" },
+  { id: "eufy-s2-pro", brand: "eufy", model: "S2 Pro" },
+  { id: "eufy-s1-pro", brand: "eufy", model: "S1 Pro" },
+  { id: "eufy-s1", brand: "eufy", model: "S1" },
+  { id: "eufy-e20", brand: "eufy", model: "E20" },
+  { id: "eufy-e10", brand: "eufy", model: "E10" },
 ];
 
 export function catalogByBrand(): { brand: string; pumps: CatalogPump[] }[] {

@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { AlertChoices } from "@/components/alert-choices";
+import { SectionHeading } from "@/components/care-icon";
+import { BabySettings } from "@/components/baby-settings";
 import { LanguageSwitch } from "@/components/language-switch";
 import { MyPumps } from "@/components/my-pumps";
 import { ReminderSettings } from "@/components/reminder-settings";
@@ -23,11 +25,12 @@ export default function SettingsPage() {
         <p className="text-base leading-6 text-muted">{t("settings.lede")}</p>
       </header>
       <LanguageSwitch />
+      <BabySettings />
       <MyPumps />
       <WashByHours />
       <p className="text-sm leading-6 text-muted">{t("settings.deviceNote")}</p>
       <div className="rounded-3xl border border-line bg-card p-4">
-        <h2 className="text-sm font-semibold">{t("settings.unit")}</h2>
+        <SectionHeading icon="beaker">{t("settings.unit")}</SectionHeading>
         <p className="mt-2 text-base font-semibold">{t("settings.unitValue")}</p>
         <p className="mt-1 text-sm leading-6 text-muted">{t("settings.unitHint")}</p>
       </div>

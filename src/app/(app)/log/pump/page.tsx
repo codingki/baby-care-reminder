@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CareIcon } from "@/components/care-icon";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
+import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
@@ -30,7 +32,13 @@ function formatWhen(iso: string, locale: Locale) {
 
 export default function PumpPage() {
   return (
-    <Screen titleKey="pump.title" ledeKey="pump.lede" backHref="/" showLater={false}>
+    <Screen
+      titleKey="pump.title"
+      ledeKey="pump.lede"
+      backHref="/"
+      showLater={false}
+      icon={<CareIcon name="pump" className="h-8 w-8" />}
+    >
       <PumpLog />
     </Screen>
   );
@@ -50,6 +58,8 @@ function PumpLog() {
   const [volume, setVolume] = useState("");
   const [milkLocation, setMilkLocation] = useState<ChillerLocation>("fridge");
   const [addedIds, setAddedIds] = useState<string[]>([]);
+  const [pending, setPending] = useState<"log" | "chiller" | null>(null);
+  const lock = useRef(false);
 
   const fallbackPumpId = defaultPumpId(care.pumps);
   const activePumpId =
@@ -67,56 +77,82 @@ function PumpLog() {
   const canConfirm = canStoreParts || saveMilk;
 
   async function confirm() {
-    const parsed = volume.trim() === "" ? null : Number(volume);
-    const volumeMl =
-      parsed !== null && Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
-    const context = await loadFamilyContext();
-    const washByHours = context?.washByHours ?? care.washByHours;
-    const ids: string[] = [];
-    if (storeParts && selectedPump) {
-      const saved = await saveChillerItem({
-        type: "pump_parts",
-        location: "fridge",
-        volumeMl: null,
-        pumpId: selectedPump.id,
-        washByHours,
-      });
-      ids.push(saved.id);
+    if (lock.current || !canConfirm) return;
+    lock.current = true;
+    setPending("chiller");
+    setStatus(null);
+    try {
+      const parsed = volume.trim() === "" ? null : Number(volume);
+      const volumeMl =
+        parsed !== null && Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+      const context = await loadFamilyContext();
+      const washByHours = context?.washByHours ?? care.washByHours;
+      const ids: string[] = [];
+      if (storeParts && selectedPump) {
+        const saved = await saveChillerItem({
+          type: "pump_parts",
+          location: "fridge",
+          volumeMl: null,
+          pumpId: selectedPump.id,
+          washByHours,
+        });
+        if (saved.status === "error") {
+          setStatus(t("common.failed"));
+          return;
+        }
+        ids.push(saved.id);
+      }
+      if (saveMilk) {
+        const saved = await saveChillerItem({
+          type: "milk",
+          location: milkLocation,
+          volumeMl: volumeMl ?? Math.round(pumpedAmount),
+          pumpId: null,
+          washByHours,
+        });
+        if (saved.status === "error") {
+          setStatus(t("common.failed"));
+          if (ids.length > 0) setAddedIds(ids);
+          return;
+        }
+        ids.push(saved.id);
+      }
+      setAddedIds(ids);
+      setStatus(t("common.saved"));
+    } finally {
+      lock.current = false;
+      setPending(null);
     }
-    if (saveMilk) {
-      const saved = await saveChillerItem({
-        type: "milk",
-        location: milkLocation,
-        volumeMl: volumeMl ?? Math.round(pumpedAmount),
-        pumpId: null,
-        washByHours,
-      });
-      ids.push(saved.id);
-    }
-    setAddedIds(ids);
-    setStatus(t("common.saved"));
   }
 
   async function logPump() {
-    if (!selectedPump || !canLog) return;
-    const minutesValue = minutes.trim() === "" ? null : Math.round(Number(minutes) * 60);
-    const result = await saveLog({
-      kind: "pump",
-      amountMl: Math.round(pumpedAmount),
-      durationSeconds: minutesValue && minutesValue > 0 ? minutesValue : null,
-      pumpId: selectedPump.id,
-    });
-    if (result === "needs-family") {
-      router.push("/onboarding");
-      return;
+    if (lock.current || !selectedPump || !canLog) return;
+    lock.current = true;
+    setPending("log");
+    setStatus(null);
+    try {
+      const minutesValue = minutes.trim() === "" ? null : Math.round(Number(minutes) * 60);
+      const result = await saveLog({
+        kind: "pump",
+        amountMl: Math.round(pumpedAmount),
+        durationSeconds: minutesValue && minutesValue > 0 ? minutesValue : null,
+        pumpId: selectedPump.id,
+      });
+      if (result === "needs-family") {
+        router.push("/onboarding");
+        return;
+      }
+      if (result === "error") {
+        setStatus(t("common.failed"));
+        return;
+      }
+      markPumpUsed(selectedPump.id);
+      setStatus(result === "queued" ? t("common.queued") : t("common.saved"));
+      setLogged(true);
+    } finally {
+      lock.current = false;
+      setPending(null);
     }
-    if (result === "error") {
-      setStatus(t("common.failed"));
-      return;
-    }
-    markPumpUsed(selectedPump.id);
-    setStatus(result === "queued" ? t("common.queued") : t("common.saved"));
-    setLogged(true);
   }
 
   return (
@@ -215,11 +251,12 @@ function PumpLog() {
           ) : null}
           <button
             type="button"
-            disabled={!canConfirm}
-            onClick={confirm}
+            disabled={!canConfirm || pending !== null}
+            aria-busy={pending === "chiller"}
+            onClick={() => void confirm()}
             className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
           >
-            {t("pump.confirm")}
+            {pending === "chiller" ? <SavingLabel label={t("common.saving")} /> : t("pump.confirm")}
           </button>
           {addedIds.length > 0 ? (
             <div className="flex flex-col gap-2 text-sm">
@@ -235,11 +272,12 @@ function PumpLog() {
       ) : (
         <button
           type="button"
-          onClick={logPump}
-          disabled={!canLog}
+          onClick={() => void logPump()}
+          disabled={!canLog || pending !== null}
+          aria-busy={pending === "log"}
           className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
         >
-          {t("pump.log")}
+          {pending === "log" ? <SavingLabel label={t("common.saving")} /> : t("pump.log")}
         </button>
       )}
       {status ? <p role="status">{status}</p> : null}

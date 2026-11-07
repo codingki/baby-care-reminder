@@ -82,6 +82,7 @@ Deno.serve(async (request) => {
       supabase
         .from("reminders")
         .select("id, family_id, reminder_type, audience")
+        // next_due_at is set when a log is saved. Feeds use suggested_interval_minutes, or 120 when null.
         .lte("next_due_at", nowIso)
         .eq("enabled", true)
         .is("notified_at", null)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Screen } from "@/components/screen";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
@@ -96,7 +97,13 @@ export default function TimelinePage() {
   const both = logs.filter((log) => log.diaperKind === "mixed").length;
 
   return (
-    <Screen titleKey="timeline.title" ledeKey="timeline.lede" backHref="/" showLater={false}>
+    <Screen
+      titleKey="timeline.title"
+      ledeKey="timeline.lede"
+      backHref="/"
+      showLater={false}
+      icon={<CareIcon name="schedule" className="h-8 w-8" />}
+    >
       {state === "loading" ? (
         <p className="text-sm text-muted" role="status" aria-live="polite">
           {t("timeline.loading")}
@@ -130,7 +137,8 @@ export default function TimelinePage() {
           </ul>
           <ol className="flex flex-col gap-3">
             {logs.map((log) => (
-              <li key={log.id} className="text-sm">
+              <li key={log.id} className="flex items-center gap-2 text-sm">
+                <CareIcon name={logIcon(log.kind)} className="h-4 w-4 shrink-0 text-accent" />
                 <span className="font-semibold">{label(log, t)}</span>
                 {log.amountMl ? <span> · {log.amountMl} ml</span> : null}
                 {log.by ? <span> · {log.by}</span> : null}
@@ -161,6 +169,12 @@ function toLog(
     diaperKind: typeof row.diaper_kind === "string" ? row.diaper_kind : null,
     by: loggedBy && names ? names[loggedBy] ?? null : null,
   };
+}
+
+function logIcon(kind: string): CareIconName {
+  if (kind === "feed") return "feed";
+  if (kind === "pump") return "pump";
+  return "diaper";
 }
 
 function label(

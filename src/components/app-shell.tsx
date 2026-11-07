@@ -3,26 +3,31 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Mark } from "@/components/mark";
 import { useI18n } from "@/i18n/provider";
 import type { MessageKey } from "@/i18n/translate";
 
 const navItems = [
-  { href: "/", labelKey: "shell.navLog" },
-  { href: "/chiller", labelKey: "shell.navChiller" },
-  { href: "/family", labelKey: "shell.navFamily" },
-  { href: "/settings", labelKey: "shell.navSettings" },
-] as const satisfies ReadonlyArray<{ href: string; labelKey: MessageKey }>;
+  { href: "/", labelKey: "shell.navHome", icon: "home" },
+  { href: "/timeline", labelKey: "shell.navSchedule", icon: "schedule" },
+  { href: "/family", labelKey: "shell.navFamily", icon: "family" },
+] as const satisfies ReadonlyArray<{ href: string; labelKey: MessageKey; icon: CareIconName }>;
 
 function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/" || pathname.startsWith("/log");
-  if (href === "/chiller") {
+  if (href === "/") {
     return (
-      pathname === "/chiller" ||
-      pathname.startsWith("/chiller/") ||
-      pathname === "/bottles" ||
-      pathname.startsWith("/bottles/")
+      pathname === "/" ||
+      pathname.startsWith("/log") ||
+      pathname.startsWith("/chiller") ||
+      pathname.startsWith("/bottles") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/onboarding")
     );
+  }
+  if (href === "/timeline") return pathname === "/timeline" || pathname.startsWith("/timeline/");
+  if (href === "/family") {
+    return pathname === "/family" || pathname.startsWith("/family/") || pathname.startsWith("/join");
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -38,25 +43,62 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         {t("shell.skip")}
       </a>
-      <header className="sticky top-0 z-20 border-b border-line bg-background/95 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
-        <p className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">
-          {t("shell.eyebrow")}
-        </p>
-        <Link href="/" className="mt-1 flex items-center gap-3">
-          <Mark />
-          <span className="text-lg font-semibold tracking-tight">{t("shell.brand")}</span>
-        </Link>
-      </header>
-      <main
-        id="content"
-        className="flex-1 px-5 py-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
+      <Suspense
+        fallback={
+          <>
+            <BrandHeader />
+            <main
+              id="content"
+              className="flex-1 px-5 py-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
+            >
+              {children}
+            </main>
+          </>
+        }
       >
-        {children}
-      </main>
+        <PathChrome>{children}</PathChrome>
+      </Suspense>
       <Suspense fallback={<BottomNav pathname={null} />}>
         <ActiveBottomNav />
       </Suspense>
     </div>
+  );
+}
+
+function PathChrome({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const home = pathname === "/";
+
+  return (
+    <>
+      {home ? null : <BrandHeader />}
+      <main
+        id="content"
+        className={
+          home
+            ? "flex-1 px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
+            : "flex-1 px-5 py-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))]"
+        }
+      >
+        {children}
+      </main>
+    </>
+  );
+}
+
+function BrandHeader() {
+  const { t } = useI18n();
+
+  return (
+    <header className="sticky top-0 z-20 border-b border-line bg-background/95 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur">
+      <p className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">
+        {t("shell.eyebrow")}
+      </p>
+      <Link href="/" className="mt-1 flex items-center gap-3">
+        <Mark />
+        <span className="text-lg font-semibold tracking-tight">{t("shell.brand")}</span>
+      </Link>
+    </header>
   );
 }
 
@@ -73,7 +115,7 @@ function BottomNav({ pathname }: { pathname: string | null }) {
       aria-label={t("shell.navLabel")}
       className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-line bg-card/95 backdrop-blur"
     >
-      <ul className="grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
+      <ul className="grid grid-cols-3 pb-[env(safe-area-inset-bottom)]">
         {navItems.map((item) => {
           const active = pathname ? isActive(pathname, item.href) : false;
           return (
@@ -81,10 +123,11 @@ function BottomNav({ pathname }: { pathname: string | null }) {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-14 items-center justify-center px-2 text-sm font-semibold ${
+                className={`flex min-h-16 flex-col items-center justify-center gap-1 px-2 text-[11px] font-medium ${
                   active ? "text-accent" : "text-muted"
                 }`}
               >
+                <CareIcon name={item.icon} className="h-5 w-5" />
                 {t(item.labelKey)}
               </Link>
             </li>

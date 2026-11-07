@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CareIcon } from "@/components/care-icon";
 import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
@@ -39,7 +40,12 @@ export default function ChillerPage() {
   const items = mergeItems(live, deviceItems);
 
   return (
-    <Screen titleKey="chiller.title" ledeKey="chiller.lede" showLater={false}>
+    <Screen
+      titleKey="chiller.title"
+      ledeKey="chiller.lede"
+      showLater={false}
+      icon={<CareIcon name="chiller" className="h-8 w-8" />}
+    >
       {state === "loading" && items.length === 0 ? (
         <p className="text-sm text-muted" role="status" aria-live="polite">
           {t("chiller.loading")}
@@ -68,11 +74,17 @@ export default function ChillerPage() {
               <li key={item.id}>
                 <Link
                   href={`/chiller/${item.id}`}
-                  className="block rounded-3xl border border-line bg-card px-5 py-4"
+                  className="flex items-start gap-3 rounded-3xl border border-line bg-card px-5 py-4"
                 >
-                  <p className="text-base font-semibold">{title}</p>
-                  <p className="mt-1 text-sm text-muted">{t(`chiller.${item.location}`)}</p>
-                  <p className={`mt-1 text-sm ${expired ? "font-semibold text-accent" : ""}`}>{when}</p>
+                  <CareIcon
+                    name={item.type === "milk" ? "feed" : "chiller"}
+                    className="mt-0.5 h-5 w-5 shrink-0 text-accent"
+                  />
+                  <span>
+                    <p className="text-base font-semibold">{title}</p>
+                    <p className="mt-1 text-sm text-muted">{t(`chiller.${item.location}`)}</p>
+                    <p className={`mt-1 text-sm ${expired ? "font-semibold text-accent" : ""}`}>{when}</p>
+                  </span>
                 </Link>
               </li>
             );

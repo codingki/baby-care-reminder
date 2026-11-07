@@ -10,12 +10,14 @@ export function Screen({
   ledeKey,
   backHref,
   showLater = true,
+  icon,
   children,
 }: {
   titleKey: MessageKey;
   ledeKey: MessageKey;
   backHref?: string;
   showLater?: boolean;
+  icon?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const { locale, t } = useI18n();
@@ -32,7 +34,10 @@ export function Screen({
             {t("common.back")}
           </Link>
         ) : null}
-        <h1 className="text-3xl font-semibold tracking-tight">{t(titleKey)}</h1>
+        <div className="flex items-center gap-3">
+          {icon ? <span className="text-accent">{icon}</span> : null}
+          <h1 className="text-3xl font-semibold tracking-tight">{t(titleKey)}</h1>
+        </div>
         <p className="text-base leading-6 text-muted">{t(ledeKey)}</p>
       </header>
       {children}

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CareIcon } from "@/components/care-icon";
+import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
 import { useI18n } from "@/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +21,7 @@ export default function OnboardingPage() {
   const [weightKg, setWeightKg] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const lock = useRef(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -36,58 +39,74 @@ export default function OnboardingPage() {
   }, []);
 
   async function createFamily() {
+    if (lock.current) return;
+    lock.current = true;
     setPending(true);
     setError(null);
-    const supabase = createClient();
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) {
+    try {
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) {
+        setError(t("onboarding.signIn"));
+        return;
+      }
+      const { data, error: insertError } = await supabase
+        .from("families")
+        .insert({ name: familyName.trim(), created_by: userId })
+        .select("id")
+        .single();
+      if (insertError || !data) {
+        setError(t("onboarding.error"));
+        return;
+      }
+      setFamilyId(data.id);
+    } finally {
+      lock.current = false;
       setPending(false);
-      setError(t("onboarding.signIn"));
-      return;
     }
-    const { data, error: insertError } = await supabase
-      .from("families")
-      .insert({ name: familyName.trim(), created_by: userId })
-      .select("id")
-      .single();
-    setPending(false);
-    if (insertError || !data) {
-      setError(t("onboarding.error"));
-      return;
-    }
-    setFamilyId(data.id);
   }
 
   async function addBaby() {
-    if (!familyId) return;
+    if (lock.current || !familyId) return;
     const kg = Number(weightKg);
     if (!Number.isFinite(kg) || kg <= 0) {
       setError(t("onboarding.error"));
       return;
     }
+    lock.current = true;
     setPending(true);
     setError(null);
-    const supabase = createClient();
-    const { error: insertError } = await supabase.from("babies").insert({
-      family_id: familyId,
-      name: name.trim(),
-      birth_date: birthDate,
-      sex,
-      weight_grams: Math.round(kg * 1000),
-      feeding_type: "bottle",
-    });
-    setPending(false);
-    if (insertError) {
-      setError(t("onboarding.error"));
-      return;
+    try {
+      const supabase = createClient();
+      const { error: insertError } = await supabase.from("babies").insert({
+        family_id: familyId,
+        name: name.trim(),
+        birth_date: birthDate,
+        sex,
+        weight_grams: Math.round(kg * 1000),
+        feeding_type: "bottle",
+      });
+      if (insertError) {
+        setError(t("onboarding.error"));
+        return;
+      }
+      router.push("/");
+      router.refresh();
+    } finally {
+      lock.current = false;
+      setPending(false);
     }
-    router.push("/");
-    router.refresh();
   }
 
   return (
-    <Screen titleKey={familyId ? "onboarding.title" : "onboarding.familyTitle"} ledeKey="onboarding.lede" backHref="/" showLater={false}>
+    <Screen
+      titleKey={familyId ? "onboarding.title" : "onboarding.familyTitle"}
+      ledeKey="onboarding.lede"
+      backHref="/"
+      showLater={false}
+      icon={<CareIcon name={familyId ? "baby" : "family"} className="h-8 w-8" />}
+    >
       {familyId === null ? (
         <form
           className="flex flex-col gap-3"
@@ -109,9 +128,10 @@ export default function OnboardingPage() {
           <button
             type="submit"
             disabled={pending}
+            aria-busy={pending}
             className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
           >
-            {t("onboarding.saveFamily")}
+            {pending ? <SavingLabel label={t("common.saving")} /> : t("onboarding.saveFamily")}
           </button>
         </form>
       ) : (
@@ -178,9 +198,10 @@ export default function OnboardingPage() {
           <button
             type="submit"
             disabled={pending}
+            aria-busy={pending}
             className="min-h-12 rounded-2xl bg-accent text-base font-semibold text-accent-foreground disabled:opacity-50"
           >
-            {t("onboarding.saveBaby")}
+            {pending ? <SavingLabel label={t("common.saving")} /> : t("onboarding.saveBaby")}
           </button>
         </form>
       )}

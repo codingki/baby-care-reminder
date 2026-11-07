@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { CareIcon, SectionHeading } from "@/components/care-icon";
+import { SavingLabel } from "@/components/saving-label";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
 
 const fields = [
-  ["alert_diaper", "settings.alertDiaper"],
-  ["alert_feed", "settings.alertFeed"],
-  ["alert_pump", "settings.alertPump"],
-  ["alert_milk", "settings.alertMilk"],
-  ["alert_parts", "settings.alertParts"],
+  ["alert_diaper", "settings.alertDiaper", "diaper"],
+  ["alert_feed", "settings.alertFeed", "feed"],
+  ["alert_pump", "settings.alertPump", "pump"],
+  ["alert_milk", "settings.alertMilk", "feed"],
+  ["alert_parts", "settings.alertParts", "chiller"],
 ] as const;
 
 type Field = (typeof fields)[number][0];
@@ -27,6 +29,8 @@ export function AlertChoices() {
     alert_parts: true,
   });
   const [note, setNote] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const lock = useRef(false);
 
   useEffect(() => {
     void (async () => {
@@ -53,29 +57,47 @@ export function AlertChoices() {
   }, []);
 
   async function save(field: Field, next: boolean) {
+    if (lock.current) return;
     const updated = { ...values, [field]: next };
     setValues(updated);
     if (!userId || !familyId) return;
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("member_settings")
-      .update({ [field]: next })
-      .eq("user_id", userId)
-      .eq("family_id", familyId);
-    setNote(error ? t("common.failed") : t("common.saved"));
+    lock.current = true;
+    setPending(true);
+    setNote(null);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("member_settings")
+        .update({ [field]: next })
+        .eq("user_id", userId)
+        .eq("family_id", familyId);
+      setNote(error ? t("common.failed") : t("common.saved"));
+    } finally {
+      lock.current = false;
+      setPending(false);
+    }
   }
 
   return (
     <section className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
-      <h2 className="text-sm font-semibold">{t("settings.alerts")}</h2>
+      <SectionHeading icon="bellRing">{t("settings.alerts")}</SectionHeading>
       <p className="text-sm leading-6 text-muted">{t("settings.alertsHint")}</p>
-      {fields.map(([field, label]) => (
+      {pending ? (
+        <p role="status" className="text-sm text-muted">
+          <SavingLabel label={t("common.saving")} />
+        </p>
+      ) : null}
+      {fields.map(([field, label, icon]) => (
         <label key={field} className="flex min-h-12 items-center justify-between gap-3 text-base font-semibold">
-          <span>{t(label)}</span>
+          <span className="flex items-center gap-2">
+            <CareIcon name={icon} className="h-5 w-5 text-accent" />
+            {t(label)}
+          </span>
           <input
             type="checkbox"
             role="switch"
             checked={values[field]}
+            disabled={pending}
             onChange={(event) => void save(field, event.target.checked)}
             className="h-6 w-11 accent-[#5f7f6c]"
           />

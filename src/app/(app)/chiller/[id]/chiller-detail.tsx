@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CareIcon } from "@/components/care-icon";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
@@ -52,7 +53,13 @@ export function ChillerDetail({ id }: { id: string }) {
 
   if (state === "loading") {
     return (
-      <Screen titleKey="chiller.detailTitle" ledeKey="chiller.detailLede" backHref="/chiller" showLater={false}>
+      <Screen
+        titleKey="chiller.detailTitle"
+        ledeKey="chiller.detailLede"
+        backHref="/chiller"
+        showLater={false}
+        icon={<CareIcon name="chiller" className="h-8 w-8" />}
+      >
         <p className="text-sm text-muted" role="status" aria-live="polite">
           {t("chiller.loading")}
         </p>
@@ -62,7 +69,13 @@ export function ChillerDetail({ id }: { id: string }) {
 
   if (!item) {
     return (
-      <Screen titleKey="chiller.detailTitle" ledeKey="chiller.missing" backHref="/chiller" showLater={false} />
+      <Screen
+        titleKey="chiller.detailTitle"
+        ledeKey="chiller.missing"
+        backHref="/chiller"
+        showLater={false}
+        icon={<CareIcon name="chiller" className="h-8 w-8" />}
+      />
     );
   }
 
@@ -73,9 +86,18 @@ export function ChillerDetail({ id }: { id: string }) {
   const title = item.type === "milk" ? t("chiller.milk") : item.pumpName || t("chiller.parts");
 
   return (
-    <Screen titleKey="chiller.detailTitle" ledeKey="chiller.detailLede" backHref="/chiller" showLater={false}>
+    <Screen
+      titleKey="chiller.detailTitle"
+      ledeKey="chiller.detailLede"
+      backHref="/chiller"
+      showLater={false}
+      icon={<CareIcon name="chiller" className="h-8 w-8" />}
+    >
       <div className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
-        <h2 className="text-base font-semibold">{title}</h2>
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <CareIcon name={item.type === "milk" ? "feed" : "pump"} className="h-5 w-5 text-accent" />
+          {title}
+        </h2>
         <p className="text-sm text-muted">{t(`chiller.${item.location}`)}</p>
         {item.volumeMl !== null ? (
           <p className="text-sm">{t("chiller.volume", { amount: String(item.volumeMl) })}</p>

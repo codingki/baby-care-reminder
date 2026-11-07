@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
@@ -32,6 +33,8 @@ export default function FamilyPage() {
   const [name, setName] = useState("");
   const [note, setNote] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [pending, setPending] = useState<"name" | "invite" | null>(null);
+  const lock = useRef(false);
 
   async function refresh(currentFamilyId: string, currentUserId: string) {
     const supabase = createClient();
@@ -97,43 +100,59 @@ export default function FamilyPage() {
   }, []);
 
   async function createInvite() {
-    if (!familyId || !userId || role === "viewer") return;
-    const supabase = createClient();
-    const expiresAt = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
-    const token = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, "");
-    const { data, error } = await supabase
-      .from("invites")
-      .insert({
-        family_id: familyId,
-        role: inviteRole,
-        created_by: userId,
-        expires_at: expiresAt,
-        token,
-      })
-      .select("token")
-      .single();
-    if (error || !data?.token) {
-      setNote(t("common.failed"));
-      return;
+    if (lock.current || !familyId || !userId || role === "viewer") return;
+    lock.current = true;
+    setPending("invite");
+    setNote(null);
+    try {
+      const supabase = createClient();
+      const expiresAt = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
+      const token = `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, "");
+      const { data, error } = await supabase
+        .from("invites")
+        .insert({
+          family_id: familyId,
+          role: inviteRole,
+          created_by: userId,
+          expires_at: expiresAt,
+          token,
+        })
+        .select("token")
+        .single();
+      if (error || !data?.token) {
+        setNote(t("common.failed"));
+        return;
+      }
+      const next = `${window.location.origin}/join/${data.token}`;
+      setLink(next);
+      setNote(t("family.created"));
+      await refresh(familyId, userId);
+    } finally {
+      lock.current = false;
+      setPending(null);
     }
-    const next = `${window.location.origin}/join/${data.token}`;
-    setLink(next);
-    setNote(t("family.created"));
-    await refresh(familyId, userId);
   }
 
   async function saveName() {
-    if (!userId || !familyId) return;
+    if (lock.current || !userId || !familyId) return;
     const trimmed = name.trim();
     if (!trimmed) return;
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("family_members")
-      .update({ display_name: trimmed })
-      .eq("user_id", userId)
-      .eq("family_id", familyId);
-    setNote(error ? t("common.failed") : t("common.saved"));
-    if (!error) await refresh(familyId, userId);
+    lock.current = true;
+    setPending("name");
+    setNote(null);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("family_members")
+        .update({ display_name: trimmed })
+        .eq("user_id", userId)
+        .eq("family_id", familyId);
+      setNote(error ? t("common.failed") : t("common.saved"));
+      if (!error) await refresh(familyId, userId);
+    } finally {
+      lock.current = false;
+      setPending(null);
+    }
   }
 
   async function copy(value: string) {
@@ -179,9 +198,11 @@ export default function FamilyPage() {
           <button
             type="button"
             onClick={() => void saveName()}
-            className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold"
+            disabled={pending !== null}
+            aria-busy={pending === "name"}
+            className="min-h-12 rounded-2xl border border-line px-4 text-base font-semibold disabled:opacity-50"
           >
-            {t("common.save")}
+            {pending === "name" ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
           </button>
           {role && role !== "viewer" ? (
             <div className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
@@ -202,9 +223,11 @@ export default function FamilyPage() {
               <button
                 type="button"
                 onClick={() => void createInvite()}
-                className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground"
+                disabled={pending !== null}
+                aria-busy={pending === "invite"}
+                className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
               >
-                {t("family.create")}
+                {pending === "invite" ? <SavingLabel label={t("common.saving")} /> : t("family.create")}
               </button>
               {link ? (
                 <button type="button" onClick={() => void copy(link)} className="text-left text-sm font-semibold text-accent">

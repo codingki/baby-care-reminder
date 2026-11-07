@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CareIcon } from "@/components/care-icon";
+import { SavingLabel } from "@/components/saving-label";
 import { useI18n } from "@/i18n/provider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -31,9 +33,17 @@ export function SignOutButton() {
         type="button"
         onClick={signOut}
         disabled={pending}
+        aria-busy={pending}
         className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-semibold"
       >
-        {pending ? t("settings.signingOut") : t("settings.signOut")}
+        {pending ? (
+          <SavingLabel label={t("settings.signingOut")} />
+        ) : (
+          <span className="inline-flex items-center justify-center gap-2">
+            <CareIcon name="logOut" className="h-5 w-5" />
+            {t("settings.signOut")}
+          </span>
+        )}
       </button>
       {message ? (
         <p className="text-sm text-foreground" role="alert">

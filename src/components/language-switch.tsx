@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { CareIcon } from "@/components/care-icon";
+import { SavingLabel } from "@/components/saving-label";
 import { setLocale } from "@/i18n/actions";
 import type { Locale } from "@/i18n/locales";
 import { useI18n } from "@/i18n/provider";
@@ -34,7 +36,12 @@ export function LanguageSwitch() {
 
   return (
     <fieldset className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4" disabled={pending}>
-      <legend className="px-1 text-sm font-semibold">{t("settings.language")}</legend>
+      <legend className="px-1 text-sm font-semibold">
+        <span className="flex items-center gap-2">
+          <CareIcon name="language" className="h-4 w-4 text-accent" />
+          {t("settings.language")}
+        </span>
+      </legend>
       <p className="text-sm leading-6 text-muted">{t("settings.languageHint")}</p>
       <div className="grid grid-cols-2 gap-2" role="group" aria-label={t("settings.language")}>
         {options.map((option) => {
@@ -56,6 +63,11 @@ export function LanguageSwitch() {
           );
         })}
       </div>
+      {pending ? (
+        <p role="status" className="text-sm text-muted">
+          <SavingLabel label={t("common.saving")} />
+        </p>
+      ) : null}
     </fieldset>
   );
 }
