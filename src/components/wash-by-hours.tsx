@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SectionHeading } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
@@ -60,7 +61,7 @@ export function WashByHours() {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
+    <Card className="gap-3 p-4">
       <SectionHeading icon="clock">{t("settings.washBy")}</SectionHeading>
       {pending ? (
         <p role="status" className="text-sm text-muted">
@@ -87,6 +88,6 @@ export function WashByHours() {
           {note}
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/provider";
 
 export function PartsDisclaimer({ time, seen }: { time: string; seen: boolean }) {
@@ -19,16 +20,18 @@ export function PartsDisclaimer({ time, seen }: { time: string; seen: boolean })
           </p>
         ) : null}
       </div>
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="icon"
         aria-expanded={show}
         aria-controls={show ? panelId : undefined}
         aria-label={t("pump.disclaimerInfo")}
         onClick={() => setOpen((value) => !value)}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-background text-base font-semibold text-accent"
+        className="shrink-0 bg-background text-base text-accent"
       >
         i
-      </button>
+      </Button>
     </div>
   );
 }

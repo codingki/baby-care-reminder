@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CareIcon } from "@/components/care-icon";
@@ -8,7 +9,9 @@ import { MINUTE_PRESETS, PresetChips, volumePresets, volumeToMl } from "@/compon
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useSaveLock } from "@/components/use-save-lock";
 import { useCareStore } from "@/components/use-care-store";
@@ -146,17 +149,16 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
             {sides.map((option) => {
               const pressed = side === option;
               return (
-                <button
+                <Button
                   key={option}
                   type="button"
                   aria-pressed={pressed}
                   onClick={() => setSide(option)}
-                  className={`min-h-12 rounded-2xl text-base font-semibold ${
-                    pressed ? "bg-accent text-accent-foreground" : "border border-line bg-card text-foreground"
-                  }`}
+                  variant={pressed ? "default" : "outline"}
+                  className="min-h-12 rounded-2xl text-base"
                 >
                   {t(`dbf.${option}`)}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -244,9 +246,10 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
         {kind === null || kind === "wet" ? (
           <div className="grid grid-cols-1 gap-3">
             {diaperChoices.map((choice) => (
-              <button
+              <Button
                 key={choice.key}
                 type="button"
+                variant="outline"
                 disabled={pending}
                 aria-busy={pending && choice.value === "wet"}
                 onClick={() => {
@@ -260,7 +263,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
                   setAmount(null);
                   setMessage(null);
                 }}
-                className="inline-flex min-h-16 items-center justify-center gap-2 rounded-3xl border border-line bg-card text-lg font-semibold text-accent disabled:opacity-50"
+                className="min-h-16 rounded-3xl text-lg text-accent"
               >
                 {pending && choice.value === "wet" ? (
                   <SavingLabel label={t("common.saving")} />
@@ -270,7 +273,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
                     {t(`diaper.${choice.key}`)}
                   </>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         ) : (
@@ -282,17 +285,19 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
               void save(kind, { color, amount });
             }}
           >
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={() => {
                 setKind(null);
                 setColor(null);
                 setAmount(null);
               }}
-              className="self-start text-sm font-semibold text-accent"
+              className="h-auto min-h-0 self-start px-0 text-sm"
             >
               {t("common.back")}
-            </button>
+            </Button>
             <p className="text-base font-semibold">{t(kind === "dirty" ? "diaper.dirty" : "diaper.both")}</p>
             <div className="flex flex-col gap-2">
               <p className="text-sm font-semibold">{t("diaper.color")}</p>
@@ -300,18 +305,19 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
                 {poopColors.map((option) => {
                   const pressed = color === option.key;
                   return (
-                    <button
+                    <Button
                       key={option.key}
                       type="button"
+                      variant="outline"
                       aria-pressed={pressed}
                       onClick={() => setColor(pressed ? null : option.key)}
-                      className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl border px-1 text-xs font-semibold ${
-                        pressed ? "border-accent" : "border-line bg-card"
+                      className={`h-auto min-h-16 flex-col gap-1 rounded-2xl px-1 text-xs ${
+                        pressed ? "border-accent" : ""
                       }`}
                     >
                       <span className="h-8 w-8 rounded-full border border-line" style={{ backgroundColor: option.swatch }} />
                       {t(`diaper.${option.key}`)}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -323,17 +329,16 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
                 {poopAmounts.map((option) => {
                   const pressed = amount === option;
                   return (
-                    <button
+                    <Button
                       key={option}
                       type="button"
                       aria-pressed={pressed}
+                      variant={pressed ? "default" : "outline"}
                       onClick={() => setAmount(pressed ? null : option)}
-                      className={`min-h-12 rounded-2xl px-2 text-sm font-semibold ${
-                        pressed ? "bg-accent text-accent-foreground" : "border border-line bg-card"
-                      }`}
+                      className="min-h-12 rounded-2xl px-2 text-sm"
                     >
                       {t(`diaper.${option}`)}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -436,7 +441,15 @@ function formatWhen(iso: string, locale: Locale) {
   });
 }
 
-export function PumpLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
+export function PumpLog({
+  onClose,
+  onSaved,
+  activePartPumpIds = [],
+}: {
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+  activePartPumpIds?: string[];
+}) {
   const { locale, t } = useI18n();
   const router = useRouter();
   const care = useCareStore();
@@ -492,6 +505,7 @@ export function PumpLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
           setStatus(t("common.failed"));
           return;
         }
+        if (activePartPumpIds.includes(selectedPump.id)) toast(t("chiller.partsUpdated"));
       }
       if (saveMilk) {
         const saved = await saveChillerItem({
@@ -588,28 +602,30 @@ export function PumpLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         ) : (
           <label className="mt-3 flex flex-col gap-2 text-sm font-semibold" htmlFor="session-pump">
             {t("pump.pickPump")}
-            <select
-              id="session-pump"
-              value={selectedPump?.id ?? ""}
-              onChange={(event) => setPumpId(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
-            >
-              {care.pumps.length === 1 ? null : <option value="" />}
-              {care.pumps.map((pump) => (
-                <option key={pump.id} value={pump.id}>
-                  {pumpLabel(pump)}
-                </option>
-              ))}
-            </select>
+            <Select value={selectedPump?.id} onValueChange={setPumpId}>
+              <SelectTrigger id="session-pump">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {care.pumps.map((pump) => (
+                  <SelectItem key={pump.id} value={pump.id}>
+                    {pumpLabel(pump)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
         )}
         {logged ? (
-          <div className="mt-4 flex flex-col gap-4 rounded-3xl border border-line bg-card p-4">
+          <Card className="mt-4 gap-4 p-4">
             <p className="text-sm leading-6">{t("pump.logged")}</p>
             <label className="flex min-h-12 items-center justify-between gap-3 text-base font-semibold">
               <span>{t("pump.storeParts")}</span>
               <Switch checked={storeParts} onCheckedChange={setStoreParts} className="h-6 w-11" />
             </label>
+            {storeParts && selectedPump && activePartPumpIds.includes(selectedPump.id) ? (
+              <p className="text-sm text-muted">{t("chiller.replacesExisting")}</p>
+            ) : null}
             {storeParts ? <PartsDisclaimer time={partsTime} seen={care.partsDisclaimerSeen} /> : null}
             <label className="flex min-h-12 items-center justify-between gap-3 text-base font-semibold">
               <span>{t("pump.saveMilk")}</span>
@@ -632,22 +648,36 @@ export function PumpLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
                 <p className="text-sm text-muted">{t("pump.milkOptional")}</p>
                 <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="milk-location">
                   {t("pump.location")}
-                  <select
-                    id="milk-location"
+                  <Select
                     value={milkLocation}
-                    onChange={(event) => setMilkLocation(event.target.value as ChillerLocation)}
-                    className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+                    onValueChange={(value) => {
+                      if (
+                        value === "room" ||
+                        value === "fridge" ||
+                        value === "freezer" ||
+                        value === "cooler" ||
+                        value === "thawed" ||
+                        value === "leftover"
+                      ) {
+                        setMilkLocation(value);
+                      }
+                    }}
                   >
-                    {CHILLER_LOCATIONS.map((location) => (
-                      <option key={location} value={location}>
-                        {t(`chiller.${location}`)}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="milk-location">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CHILLER_LOCATIONS.map((location) => (
+                        <SelectItem key={location} value={location}>
+                          {t(`chiller.${location}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
               </div>
             ) : null}
-          </div>
+          </Card>
         ) : null}
       </div>
       <div className={footer}>

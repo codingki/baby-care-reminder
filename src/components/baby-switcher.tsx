@@ -53,8 +53,9 @@ export function BabySwitcher({
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => {
           setAdding(babies.length === 0);
           setOpen(true);
@@ -62,7 +63,7 @@ export function BabySwitcher({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={t("home.switchBaby")}
-        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        className="h-auto min-h-0 min-w-0 flex-1 justify-start gap-3 px-0 text-left whitespace-normal text-foreground"
       >
         {selected ? (
           <BabyAvatar name={selected.name} path={selected.photoPath} />
@@ -76,28 +77,31 @@ export function BabySwitcher({
           <span className="block truncate text-sm text-muted">{age || t("home.addBabyDetail")}</span>
         </span>
         <CareIcon name="chevron" className="h-5 w-5 shrink-0 text-muted" />
-      </button>
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent showCloseButton={false} onCloseAutoFocus={(event) => event.preventDefault()}>
           <div className="safe-x flex shrink-0 items-center justify-between gap-3 pt-4 pb-2">
             <DialogTitle className="text-lg font-semibold">{t("home.switchBaby")}</DialogTitle>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setOpen(false)}
               aria-label={t("home.close")}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-muted"
+              className="text-muted"
             >
               <CareIcon name="close" className="h-5 w-5" />
-            </button>
+            </Button>
           </div>
           <DialogDescription className="sr-only">{t("home.addBaby")}</DialogDescription>
           <div className="safe-x flex max-h-80 flex-col gap-2 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
             {babies.map((baby) => (
-              <button
+              <Button
                 key={baby.id}
                 type="button"
+                variant="ghost"
                 onClick={() => pick(baby.id)}
-                className="flex min-h-14 items-center gap-3 rounded-2xl bg-[#f3f5f3] px-3 text-left"
+                className="h-auto min-h-14 w-full justify-start gap-3 rounded-2xl bg-[#f3f5f3] px-3 text-left whitespace-normal text-foreground"
               >
                 <BabyAvatar name={baby.name} path={baby.photoPath} className="h-10 w-10 text-base" />
                 <span className="min-w-0 flex-1">
@@ -107,7 +111,7 @@ export function BabySwitcher({
                   </span>
                 </span>
                 {baby.id === selected?.id ? <CareIcon name="check" className="h-5 w-5 shrink-0 text-accent" /> : null}
-              </button>
+              </Button>
             ))}
             {created && familyId ? (
               <div className="flex flex-col gap-3 pt-2">
@@ -129,14 +133,15 @@ export function BabySwitcher({
                 onCreated={(baby) => setCreated({ id: baby.id, name: baby.name, path: null })}
               />
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setAdding(true)}
-                className="flex min-h-14 items-center gap-3 rounded-2xl px-3 text-left text-base font-semibold text-accent"
+                className="h-auto min-h-14 w-full justify-start gap-3 rounded-2xl px-3 text-left text-base whitespace-normal"
               >
                 <CareIcon name="chevron" className="h-5 w-5" />
                 {t("home.addBaby")}
-              </button>
+              </Button>
             )}
           </div>
         </DialogContent>

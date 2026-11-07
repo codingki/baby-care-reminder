@@ -5,6 +5,7 @@ import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n/provider";
 import { rememberBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
@@ -86,18 +87,23 @@ export function AddBabyForm({
       </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-sex`}>
         {t("onboarding.sex")}
-        <select
-          id={`${idPrefix}-sex`}
+        <Select
           value={sex}
-          onChange={(event) => setSex(event.target.value as (typeof sexes)[number])}
-          className="min-h-12 rounded-2xl border border-line bg-card px-4 text-base font-normal"
+          onValueChange={(value) => {
+            if (value === "female" || value === "male" || value === "unspecified") setSex(value);
+          }}
         >
-          {sexes.map((option) => (
-            <option key={option} value={option}>
-              {t(`onboarding.${option}`)}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id={`${idPrefix}-sex`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {sexes.map((option) => (
+              <SelectItem key={option} value={option}>
+                {t(`onboarding.${option}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-weight`}>
         {t("onboarding.weightKg")}

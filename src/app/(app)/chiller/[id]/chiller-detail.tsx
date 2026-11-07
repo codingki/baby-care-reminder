@@ -5,6 +5,7 @@ import { CareIcon } from "@/components/care-icon";
 import { ChillerUndoToast, ClearChiller, useChillerUndo } from "@/components/clear-chiller";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { Screen } from "@/components/screen";
+import { Card } from "@/components/ui/card";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
@@ -104,7 +105,7 @@ export function ChillerDetail({ id }: { id: string }) {
       showLater={false}
       icon={<CareIcon name="chiller" className="h-8 w-8" />}
     >
-      <div className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
+      <Card className="gap-3 p-4">
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <CareIcon name={item.type === "milk" ? "feed" : "pump"} className="h-5 w-5 text-accent" />
           {title}
@@ -152,7 +153,7 @@ export function ChillerDetail({ id }: { id: string }) {
             }}
           />
         )}
-      </div>
+      </Card>
       <ChillerUndoToast
         items={undo.items}
         onDone={() => {

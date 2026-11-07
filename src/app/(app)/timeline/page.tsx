@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Screen } from "@/components/screen";
+import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/provider";
 import type { MessageKey } from "@/i18n/translate";
 import type { Locale } from "@/i18n/locales";
@@ -128,24 +129,30 @@ export default function TimelinePage() {
         </p>
       ) : null}
       {state === "ready" && logs.length === 0 ? (
-        <p className="rounded-3xl border border-line bg-card px-5 py-4 text-sm leading-6">{t("timeline.empty")}</p>
+        <Card className="px-5 py-4 text-sm leading-6">{t("timeline.empty")}</Card>
       ) : null}
       {logs.length > 0 ? (
         <>
           <ul className="grid grid-cols-1 gap-3">
-            <li className="rounded-3xl border border-line bg-card px-5 py-4">
+            <li>
+              <Card className="gap-1 px-5 py-4">
               <p className="text-sm text-muted">{t("timeline.feeds")}</p>
               <p className="text-base font-semibold">{t("timeline.ml", { amount: String(feedMl) })}</p>
+              </Card>
             </li>
-            <li className="rounded-3xl border border-line bg-card px-5 py-4">
+            <li>
+              <Card className="gap-1 px-5 py-4">
               <p className="text-sm text-muted">{t("timeline.pumps")}</p>
               <p className="text-base font-semibold">{t("timeline.ml", { amount: String(pumpMl) })}</p>
+              </Card>
             </li>
-            <li className="rounded-3xl border border-line bg-card px-5 py-4">
+            <li>
+              <Card className="gap-1 px-5 py-4">
               <p className="text-sm text-muted">{t("timeline.diapers")}</p>
               <p className="text-base font-semibold">
                 {t("timeline.diaperMix", { wet: String(wet), dirty: String(dirty), both: String(both) })}
               </p>
+              </Card>
             </li>
           </ul>
           <ol className="flex flex-col gap-3">

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CareIcon, SectionHeading } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
+import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
@@ -80,7 +81,7 @@ export function AlertChoices() {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
+    <Card className="gap-3 p-4">
       <SectionHeading icon="bellRing">{t("settings.alerts")}</SectionHeading>
       <p className="text-sm leading-6 text-muted">{t("settings.alertsHint")}</p>
       {pending ? (
@@ -107,6 +108,6 @@ export function AlertChoices() {
           {note}
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }

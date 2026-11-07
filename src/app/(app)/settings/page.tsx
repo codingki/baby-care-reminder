@@ -9,6 +9,7 @@ import { MyPumps } from "@/components/my-pumps";
 import { ReminderSettings } from "@/components/reminder-settings";
 import { SignOutButton } from "@/components/sign-out-button";
 import { WashByHours } from "@/components/wash-by-hours";
+import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/provider";
 
 export default function SettingsPage() {
@@ -29,11 +30,11 @@ export default function SettingsPage() {
       <MyPumps />
       <WashByHours />
       <p className="text-sm leading-6 text-muted">{t("settings.deviceNote")}</p>
-      <div className="rounded-3xl border border-line bg-card p-4">
+      <Card className="gap-2 p-4">
         <SectionHeading icon="beaker">{t("settings.unit")}</SectionHeading>
         <p className="mt-2 text-base font-semibold">{t("settings.unitValue")}</p>
-        <p className="mt-1 text-sm leading-6 text-muted">{t("settings.unitHint")}</p>
-      </div>
+        <p className="text-sm leading-6 text-muted">{t("settings.unitHint")}</p>
+      </Card>
       <ReminderSettings />
       <AlertChoices />
       <SignOutButton />

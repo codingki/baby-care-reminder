@@ -166,10 +166,12 @@ export function BabyPhotoField({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
-        <label htmlFor={inputId} className="relative cursor-pointer">
-          <BabyAvatar name={name} path={path} />
-          <span className="sr-only">{path ? t("family.changePhoto") : t("family.addPhoto")}</span>
-        </label>
+        <Button asChild variant="ghost" className="h-auto min-h-0 rounded-full p-0">
+          <label htmlFor={inputId} className="relative cursor-pointer">
+            <BabyAvatar name={name} path={path} />
+            <span className="sr-only">{path ? t("family.changePhoto") : t("family.addPhoto")}</span>
+          </label>
+        </Button>
         <input
           id={inputId}
           type="file"

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
 import { PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
 import { saveChillerItem } from "@/lib/save-log";
@@ -25,6 +27,7 @@ export function ChillerSheet({
   pumps,
   babies,
   defaultBabyId = "",
+  activePartPumpIds = [],
   onClose,
   onSaved,
 }: {
@@ -32,6 +35,7 @@ export function ChillerSheet({
   pumps: SheetPump[];
   babies: { id: string; name: string }[];
   defaultBabyId?: string;
+  activePartPumpIds?: string[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
@@ -104,6 +108,7 @@ export function ChillerSheet({
         setStatus(t("common.failed"));
         return;
       }
+      if (activePartPumpIds.includes(selectedPump)) toast(t("chiller.partsUpdated"));
       await onSaved();
       onClose();
     } finally {
@@ -120,28 +125,30 @@ export function ChillerSheet({
 
         {step === "choose" ? (
           <div className="flex flex-col gap-3">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => {
                 setStatus(null);
                 setStep("milk");
               }}
-              className="flex min-h-16 items-center gap-3 rounded-2xl bg-[#f3f5f3] px-4 text-left"
+              className="h-auto min-h-16 w-full justify-start gap-3 rounded-2xl bg-[#f3f5f3] px-4 text-left whitespace-normal text-base text-foreground"
             >
               <CareIcon name="feed" className="h-6 w-6 text-accent" />
               <span className="text-base font-semibold">{t("home.storeMilk")}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => {
                 setStatus(null);
                 setStep("parts");
               }}
-              className="flex min-h-16 items-center gap-3 rounded-2xl bg-[#f3f5f3] px-4 text-left"
+              className="h-auto min-h-16 w-full justify-start gap-3 rounded-2xl bg-[#f3f5f3] px-4 text-left whitespace-normal text-base text-foreground"
             >
               <CareIcon name="pump" className="h-6 w-6 text-accent" />
               <span className="text-base font-semibold">{t("home.storeParts")}</span>
-            </button>
+            </Button>
             <Link href="/chiller" onClick={onClose} className="text-sm font-semibold text-accent">
               {t("home.chillerList")}
             </Link>
@@ -157,13 +164,15 @@ export function ChillerSheet({
               void storeMilk();
             }}
           >
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={() => setStep("choose")}
-              className="self-start text-sm font-semibold text-accent"
+              className="h-auto min-h-0 self-start px-0 text-sm"
             >
               {t("common.back")}
-            </button>
+            </Button>
             <h3 className="flex items-center gap-2 text-sm font-semibold">
               <CareIcon name="feed" className="h-4 w-4 text-accent" />
               {t("home.storeMilk")}
@@ -182,38 +191,40 @@ export function ChillerSheet({
           <PresetChips values={volumePresets(unit)} onPick={(value) => setMilkMl(String(value))} />
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-where">
               {t("pump.location")}
-              <select
-                id="sheet-milk-where"
+              <Select
                 value={location}
-                onChange={(event) => {
-                  const value = event.target.value;
+                onValueChange={(value) => {
                   if (value === "fridge" || value === "freezer" || value === "cooler") setLocation(value);
                 }}
-                className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
               >
-                {LOCATIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {t(`chiller.${option}`)}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="sheet-milk-where">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LOCATIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {t(`chiller.${option}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-baby">
               {t("chiller.baby")}
               <span className="font-normal text-muted"> · {t("chiller.noteOptional")}</span>
-              <select
-                id="sheet-milk-baby"
-                value={milkBabyId}
-                onChange={(event) => setMilkBabyId(event.target.value)}
-                className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
-              >
-                <option value="">{t("chiller.babyNone")}</option>
-                {babies.map((baby) => (
-                  <option key={baby.id} value={baby.id}>
-                    {baby.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={milkBabyId || "none"} onValueChange={(value) => setMilkBabyId(value === "none" ? "" : value)}>
+                <SelectTrigger id="sheet-milk-baby">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t("chiller.babyNone")}</SelectItem>
+                  {babies.map((baby) => (
+                    <SelectItem key={baby.id} value={baby.id}>
+                      {baby.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-note">
               {t("chiller.note")}
@@ -236,13 +247,15 @@ export function ChillerSheet({
               void storeParts();
             }}
           >
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={() => setStep("choose")}
-              className="self-start text-sm font-semibold text-accent"
+              className="h-auto min-h-0 self-start px-0 text-sm"
             >
               {t("common.back")}
-            </button>
+            </Button>
             <h3 className="flex items-center gap-2 text-sm font-semibold">
               <CareIcon name="pump" className="h-4 w-4 text-accent" />
               {t("home.storeParts")}
@@ -257,21 +270,23 @@ export function ChillerSheet({
             ) : (
               <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-pump">
                 {t("pump.pickPump")}
-                <select
-                  id="sheet-pump"
-                  value={selectedPump}
-                  onChange={(event) => setPumpId(event.target.value)}
-                  className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
-                >
-                  {pumps.length === 1 ? null : <option value="" />}
-                {pumps.map((pump) => (
-                    <option key={pump.id} value={pump.id}>
-                      {pump.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedPump || undefined} onValueChange={setPumpId}>
+                  <SelectTrigger id="sheet-pump">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pumps.map((pump) => (
+                      <SelectItem key={pump.id} value={pump.id}>
+                        {pump.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
             )}
+            {selectedPump && activePartPumpIds.includes(selectedPump) ? (
+              <p className="text-sm text-muted">{t("chiller.replacesExisting")}</p>
+            ) : null}
           </form>
         ) : null}
 

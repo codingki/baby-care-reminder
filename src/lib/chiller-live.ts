@@ -3,7 +3,7 @@ import { CHILLER_LOCATIONS } from "@/lib/device-care";
 import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
 
-export type ClearReason = "used" | "discarded" | "washed";
+export type ClearReason = "used" | "discarded" | "washed" | "replaced";
 
 export type LiveChillerItem = ChillerItem & {
   pumpName: string | null;
@@ -14,7 +14,7 @@ export type LiveChillerItem = ChillerItem & {
 };
 
 function isClearReason(value: unknown): value is ClearReason {
-  return value === "used" || value === "discarded" || value === "washed";
+  return value === "used" || value === "discarded" || value === "washed" || value === "replaced";
 }
 
 function isLocation(value: string): value is ChillerLocation {

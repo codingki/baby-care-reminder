@@ -25,7 +25,7 @@ export type ChillerItem = {
   volumeMl: number | null;
   note?: string | null;
   clearedAt?: string | null;
-  clearedReason?: "used" | "discarded" | "washed" | null;
+  clearedReason?: "used" | "discarded" | "washed" | "replaced" | null;
 };
 
 export type CareState = {
@@ -223,13 +223,25 @@ export function markChillerRestored(id: string) {
 export function markChillerCleared(
   id: string,
   clearedAt: string,
-  clearedReason: "used" | "discarded" | "washed",
+  clearedReason: "used" | "discarded" | "washed" | "replaced",
 ) {
   const current = readCare();
   writeCare({
     ...current,
     items: current.items.map((item) =>
       item.id === id ? { ...item, clearedAt, clearedReason } : item,
+    ),
+  });
+}
+
+export function replaceStoredPumpParts(pumpId: string, clearedAt: string) {
+  const current = readCare();
+  writeCare({
+    ...current,
+    items: current.items.map((item) =>
+      item.type === "pump_parts" && item.pumpId === pumpId && !item.clearedAt
+        ? { ...item, clearedAt, clearedReason: "replaced" }
+        : item,
     ),
   });
 }

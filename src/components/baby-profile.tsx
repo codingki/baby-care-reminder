@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { AddBabyForm } from "@/components/add-baby-form";
 import { BabyPhotoField } from "@/components/baby-photo";
 import { CareIcon } from "@/components/care-icon";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
 import { loadFamilyContext } from "@/lib/family-context";
@@ -98,9 +100,9 @@ export function BabyProfile() {
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{t("family.babies")}</h2>
-        <button type="button" onClick={() => setAdding(true)} className="text-sm font-semibold text-accent">
+        <Button type="button" variant="link" size="sm" className="h-auto min-h-0 px-0 text-sm" onClick={() => setAdding(true)}>
           {t("home.addBaby")}
-        </button>
+        </Button>
       </div>
       {adding && familyId && !created ? (
         <AddBabyForm
@@ -117,7 +119,7 @@ export function BabyProfile() {
         />
       ) : null}
       {created && familyId ? (
-        <div className="flex flex-col gap-3 rounded-3xl border border-line bg-card px-5 py-4">
+        <Card className="gap-3 px-5 py-4">
           <BabyPhotoField
             familyId={familyId}
             babyId={created.id}
@@ -130,23 +132,25 @@ export function BabyProfile() {
               );
             }}
           />
-          <button
+          <Button
             type="button"
-            className="self-start text-sm font-semibold text-accent"
+            variant="link"
+            size="sm"
+            className="h-auto min-h-0 self-start px-0 text-sm"
             onClick={() => {
               setCreated(null);
               setAdding(false);
             }}
           >
             {created.path ? t("onboarding.photoContinue") : t("onboarding.photoSkip")}
-          </button>
-        </div>
+          </Button>
+        </Card>
       ) : null}
       {babies.length === 0 ? <p className="text-sm text-muted">{t("settings.noBaby")}</p> : null}
       {babies.map((baby) => {
         const latest = baby.weights[0];
         return (
-          <article key={baby.id} className="flex flex-col gap-3 rounded-3xl border border-line bg-card px-5 py-4">
+          <Card key={baby.id} className="gap-3 px-5 py-4">
             <div className="flex items-center gap-3">
               <div className="min-w-0">
                 <h3 className="flex items-center gap-2 text-base font-semibold">
@@ -188,17 +192,19 @@ export function BabyProfile() {
                 </ul>
               </>
             ) : null}
-            <button
+            <Button
               type="button"
-              className="self-start text-sm font-semibold text-accent"
+              variant="link"
+              size="sm"
+              className="h-auto min-h-0 self-start px-0 text-sm"
               onClick={() => {
                 if (familyId) rememberBaby(familyId, baby.id);
                 router.push("/?log=weight");
               }}
             >
               {t("family.logWeight")}
-            </button>
-          </article>
+            </Button>
+          </Card>
         );
       })}
     </section>

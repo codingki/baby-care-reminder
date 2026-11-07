@@ -3,6 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CareIcon } from "@/components/care-icon";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { SavingLabel } from "@/components/saving-label";
 import { setLocale } from "@/i18n/actions";
 import type { Locale } from "@/i18n/locales";
@@ -35,31 +37,27 @@ export function LanguageSwitch() {
   }
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4" disabled={pending}>
-      <legend className="px-1 text-sm font-semibold">
-        <span className="flex items-center gap-2">
-          <CareIcon name="language" className="h-4 w-4 text-accent" />
-          {t("settings.language")}
-        </span>
-      </legend>
+    <Card className="gap-3 p-4">
+      <h2 className="flex items-center gap-2 text-sm font-semibold">
+        <CareIcon name="language" className="h-4 w-4 text-accent" />
+        {t("settings.language")}
+      </h2>
       <p className="text-sm leading-6 text-muted">{t("settings.languageHint")}</p>
       <div className="grid grid-cols-2 gap-2" role="group" aria-label={t("settings.language")}>
         {options.map((option) => {
           const pressed = selected === option.locale;
           return (
-            <button
+            <Button
               key={option.locale}
               type="button"
               aria-pressed={pressed}
+              variant={pressed ? "default" : "outline"}
+              disabled={pending}
               onClick={() => choose(option.locale)}
-              className={`min-h-12 rounded-2xl px-3 text-sm font-semibold ${
-                pressed
-                  ? "bg-accent text-accent-foreground"
-                  : "border border-line bg-background text-foreground"
-              }`}
+              className="min-h-12 rounded-2xl px-3 text-sm"
             >
               {option.label}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -68,6 +66,6 @@ export function LanguageSwitch() {
           <SavingLabel label={t("common.saving")} />
         </p>
       ) : null}
-    </fieldset>
+    </Card>
   );
 }

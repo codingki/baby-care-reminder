@@ -1,5 +1,6 @@
 import {
   rememberChillerItem,
+  replaceStoredPumpParts,
   type ChillerLocation,
 } from "@/lib/device-care";
 import { loadFamilyContext } from "@/lib/family-context";
@@ -100,6 +101,9 @@ export async function saveChillerItem(input: {
     volumeMl: input.type === "milk" ? input.volumeMl : null,
     note,
   };
+  if (input.type === "pump_parts" && input.pumpId) {
+    replaceStoredPumpParts(input.pumpId, item.storedAt);
+  }
   rememberChillerItem(item);
   if (!context) return { status: "queued", id };
 

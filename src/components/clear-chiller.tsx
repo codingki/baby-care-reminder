@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SavingLabel } from "@/components/saving-label";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/provider";
 import { markChillerCleared, markChillerRestored } from "@/lib/device-care";
 import type { ClearReason } from "@/lib/chiller-live";
@@ -152,9 +153,15 @@ export function ClearChiller({
 
   if (!confirming) {
     return (
-      <button type="button" onClick={() => setConfirming(true)} className="shrink-0 text-sm font-semibold text-danger">
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        className="h-auto min-h-0 shrink-0 px-0 text-sm"
+        onClick={() => setConfirming(true)}
+      >
         {t("chiller.clear")}
-      </button>
+      </Button>
     );
   }
 
@@ -163,25 +170,29 @@ export function ClearChiller({
       <p className="text-sm text-muted">{t("chiller.clearConfirm")}</p>
       <div className="flex flex-wrap gap-2">
         {reasons.map((reason) => (
-          <button
+          <Button
             key={reason}
             type="button"
+            variant="outline"
+            size="sm"
             disabled={pending !== null}
             aria-busy={pending === reason}
             onClick={() => void clear(reason)}
-            className="min-h-11 rounded-full border border-line px-3 text-sm font-semibold disabled:opacity-50"
+            className="min-h-11 rounded-full px-3 text-sm"
           >
             {pending === reason ? <SavingLabel label={t("common.saving")} /> : t(`chiller.${reason}`)}
-          </button>
+          </Button>
         ))}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           disabled={pending !== null}
           onClick={() => setConfirming(false)}
-          className="min-h-11 px-2 text-sm font-semibold text-muted"
+          className="min-h-11 px-2 text-sm text-muted"
         >
           {t("common.back")}
-        </button>
+        </Button>
       </div>
       {message ? (
         <p role="alert" className="text-sm">

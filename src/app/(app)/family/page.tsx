@@ -5,7 +5,9 @@ import { SavingLabel } from "@/components/saving-label";
 import { BabyProfile } from "@/components/baby-profile";
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
@@ -184,9 +186,11 @@ export default function FamilyPage() {
           <BabyProfile />
           <ul className="flex flex-col gap-3">
             {members.map((member) => (
-              <li key={member.id} className="rounded-3xl border border-line bg-card px-5 py-4">
+              <li key={member.id}>
+                <Card className="gap-1 px-5 py-4">
                 <h2 className="text-base font-semibold">{member.name || t(`family.${member.role}`)}</h2>
-                <p className="mt-1 text-sm text-muted">{t(`family.${member.role}`)}</p>
+                <p className="text-sm text-muted">{t(`family.${member.role}`)}</p>
+                </Card>
               </li>
             ))}
           </ul>
@@ -198,30 +202,41 @@ export default function FamilyPage() {
             {pending === "name" ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
           </Button>
           {role && role !== "viewer" ? (
-            <div className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
+            <Card className="gap-3 p-4">
               <h2 className="text-sm font-semibold">{t("family.invite")}</h2>
               <p className="text-sm leading-6 text-muted">{t("family.invites")}</p>
-              <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="invite-role">
-                {t("family.role")}
-                <select
-                  id="invite-role"
+              <div className="flex flex-col gap-2 text-sm font-semibold">
+                <label htmlFor="invite-role">{t("family.role")}</label>
+                <Select
                   value={inviteRole}
-                  onChange={(event) => setInviteRole(event.target.value as "caregiver" | "viewer")}
-                  className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
+                  onValueChange={(value) => {
+                    if (value === "caregiver" || value === "viewer") setInviteRole(value);
+                  }}
                 >
-                  <option value="caregiver">{t("family.caregiver")}</option>
-                  <option value="viewer">{t("family.viewer")}</option>
-                </select>
-              </label>
+                  <SelectTrigger id="invite-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="caregiver">{t("family.caregiver")}</SelectItem>
+                    <SelectItem value="viewer">{t("family.viewer")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Button type="button" onClick={() => void createInvite()} disabled={pending !== null} aria-busy={pending === "invite"}>
                 {pending === "invite" ? <SavingLabel label={t("common.saving")} /> : t("family.create")}
               </Button>
               {link ? (
-                <button type="button" onClick={() => void copy(link)} className="text-left text-sm font-semibold text-accent">
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto min-h-0 justify-start px-0 text-left text-sm whitespace-normal"
+                  onClick={() => void copy(link)}
+                >
                   {link}
-                </button>
+                </Button>
               ) : null}
-            </div>
+            </Card>
           ) : null}
           {invites.length > 0 ? (
             <ul className="flex flex-col gap-2">
@@ -230,13 +245,15 @@ export default function FamilyPage() {
                 return (
                   <li key={invite.id} className="text-sm">
                     <span className="font-semibold">{t(`family.${invite.role}`)}</span>
-                    <button
+                    <Button
                       type="button"
+                      variant="link"
+                      size="sm"
+                      className="ml-2 h-auto min-h-0 px-0 text-sm"
                       onClick={() => void copy(`${window.location.origin}${href}`)}
-                      className="ml-2 font-semibold text-accent"
                     >
                       {t("family.copy")}
-                    </button>
+                    </Button>
                   </li>
                 );
               })}

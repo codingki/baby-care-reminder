@@ -6,6 +6,7 @@ import { CareIcon } from "@/components/care-icon";
 import { ExpiryBar } from "@/components/expiry-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChillerUndoToast, ClearChiller, useChillerUndo, type UndoItem } from "@/components/clear-chiller";
 import { SavingLabel } from "@/components/saving-label";
@@ -131,14 +132,16 @@ export default function ChillerPage() {
               <Button type="button" disabled={clearAllPending} aria-busy={clearAllPending} onClick={() => void clearExpired()}>
                 {clearAllPending ? <SavingLabel label={t("common.saving")} /> : t("chiller.discarded")}
               </Button>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 disabled={clearAllPending}
                 onClick={() => setClearAllConfirm(false)}
-                className="self-start text-sm font-semibold text-muted"
+                className="h-auto min-h-0 self-start px-0 text-sm text-muted"
               >
                 {t("common.back")}
-              </button>
+              </Button>
             </>
           ) : (
             <Button
@@ -170,7 +173,7 @@ export default function ChillerPage() {
         </p>
       ) : null}
       {state !== "loading" && visible.length === 0 ? (
-        <p className="rounded-3xl border border-line bg-card px-5 py-4 text-sm leading-6">{t("chiller.empty")}</p>
+        <Card className="px-5 py-4 text-sm leading-6">{t("chiller.empty")}</Card>
       ) : (
         <ul className="flex flex-col gap-3">
           {visible.map((item) => {
@@ -184,12 +187,12 @@ export default function ChillerPage() {
               ? t("home.expired")
               : t("home.timeLeft", { time: formatSpan(remaining) });
             return (
-              <li
-                key={item.id}
-                className={`relative flex items-start gap-3 overflow-hidden rounded-3xl border bg-card px-5 py-4 ${
-                  expired && filter === "active" ? "border-danger" : "border-line"
-                }`}
-              >
+              <li key={item.id}>
+                <Card
+                  className={`relative flex-row items-start gap-3 overflow-hidden px-5 py-4 ${
+                    expired && filter === "active" ? "border-danger" : ""
+                  }`}
+                >
                 <Link href={`/chiller/${item.id}`} className="flex min-w-0 flex-1 items-start gap-3">
                   <CareIcon
                     name={item.type === "milk" ? "feed" : "chiller"}
@@ -233,6 +236,7 @@ export default function ChillerPage() {
                     label={t("chiller.expiryBar")}
                   />
                 ) : null}
+                </Card>
               </li>
             );
           })}

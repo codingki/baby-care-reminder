@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { SectionHeading } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import { addOwnedPump, getCareState, pumpLabel, removeOwnedPump, replacePumps } from "@/lib/device-care";
@@ -91,7 +93,7 @@ export function MyPumps() {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
+    <Card className="gap-3 p-4">
       <SectionHeading icon="pump">{t("settings.myPumps")}</SectionHeading>
       <p className="text-sm leading-6 text-muted">{t("settings.myPumpsHint")}</p>
       {pumps.length === 0 ? (
@@ -104,38 +106,41 @@ export function MyPumps() {
               className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-background px-3 py-2"
             >
               <span className="text-sm font-medium">{pumpLabel(pump)}</span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => void removePump(pump.id)}
                 disabled={pending !== null}
                 aria-busy={pending === pump.id}
-                className="min-h-11 rounded-full px-3 text-sm font-semibold text-muted disabled:opacity-50"
+                className="min-h-11 rounded-full px-3 text-sm text-muted"
               >
                 {pending === pump.id ? <SavingLabel label={t("common.saving")} /> : t("settings.removePump")}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
       )}
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pump-model">
         {t("settings.brandModel")}
-        <select
-          id="pump-model"
-          value={choice}
-          onChange={(event) => setChoice(event.target.value)}
-          className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
-        >
-          {groups.map((group) => (
-            <optgroup key={group.brand} label={group.brand}>
-              {group.pumps.map((pump) => (
-                <option key={pump.id} value={pump.id}>
-                  {pump.model}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-          <option value="custom">{t("settings.custom")}</option>
-        </select>
+        <Select value={choice} onValueChange={setChoice}>
+          <SelectTrigger id="pump-model">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {groups.map((group) => (
+              <SelectGroup key={group.brand}>
+                <SelectLabel>{group.brand}</SelectLabel>
+                {group.pumps.map((pump) => (
+                  <SelectItem key={pump.id} value={pump.id}>
+                    {pump.model}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+            <SelectItem value="custom">{t("settings.custom")}</SelectItem>
+          </SelectContent>
+        </Select>
       </label>
       {choice === "custom" ? (
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="custom-pump">
@@ -165,6 +170,6 @@ export function MyPumps() {
           {note}
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }

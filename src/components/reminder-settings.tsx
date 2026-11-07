@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { CareIcon, SectionHeading } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
@@ -203,7 +205,7 @@ export function ReminderSettings() {
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-3xl border border-line bg-card p-4">
+    <Card className="gap-4 p-4">
       <SectionHeading icon="bell">{t("settings.notifications")}</SectionHeading>
       <p className="text-sm leading-6 text-muted">{t("settings.notificationsHint")}</p>
       <ol className="flex flex-col gap-2 text-sm leading-6">
@@ -234,18 +236,18 @@ export function ReminderSettings() {
         </h3>
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="time-zone">
           {t("settings.timeZoneLabel")}
-          <select
-            id="time-zone"
-            value={timeZone}
-            onChange={(event) => void saveTimeZone(event.target.value, true)}
-            className="min-h-12 rounded-2xl border border-line bg-background px-3 text-base font-normal"
-          >
-            {timeZoneOptions(timeZone).map((zone) => (
-              <option key={zone} value={zone}>
-                {zone}
-              </option>
-            ))}
-          </select>
+          <Select value={timeZone} onValueChange={(zone) => void saveTimeZone(zone, true)}>
+            <SelectTrigger id="time-zone">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {timeZoneOptions(timeZone).map((zone) => (
+                <SelectItem key={zone} value={zone}>
+                  {zone}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
         <Button type="button" variant="outline" onClick={() => void saveTimeZone(deviceTimeZone(), false)}>
           {t("settings.timeZoneUseDevice")}
@@ -334,7 +336,7 @@ export function ReminderSettings() {
           {note}
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }
 

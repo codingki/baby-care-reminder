@@ -7,6 +7,7 @@ import { BabySwitcher, type SwitchBaby } from "@/components/baby-switcher";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { ExpiryBar } from "@/components/expiry-bar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type SheetPump } from "@/components/chiller-sheet";
 import { useCareStore } from "@/components/use-care-store";
@@ -446,11 +447,12 @@ export function HomeDashboard() {
             const line = countdownLine(card.at, now, t);
             return (
               <li key={card.key} className="min-w-0">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => setLog(card.key)}
                   aria-label={`${card.label}, ${line.text}`}
-                  className={`${SOFT} relative flex h-full min-h-[7.25rem] w-full min-w-0 flex-col items-center justify-center gap-1.5 overflow-hidden px-1.5 pt-7 pb-3 text-center ${
+                  className={`${SOFT} relative h-full min-h-[7.25rem] w-full min-w-0 flex-col items-center justify-center gap-1.5 overflow-hidden px-1.5 pt-7 pb-3 text-center whitespace-normal text-foreground ${
                     line.overdue ? "border border-danger" : ""
                   }`}
                 >
@@ -477,7 +479,7 @@ export function HomeDashboard() {
                   <span className={`text-xs font-medium ${line.overdue ? "text-danger" : "text-accent"}`}>
                     {card.label}
                   </span>
-                </button>
+                </Button>
               </li>
             );
           })}
@@ -549,36 +551,39 @@ export function HomeDashboard() {
         <ul className="grid grid-cols-2 gap-2">
           {quick.slice(0, 4).map((item) => (
             <li key={item.key}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setLog(item.key)}
-                className={`${SOFT} flex min-h-[4.75rem] w-full items-center gap-3 px-4 text-left`}
+                className={`${SOFT} h-auto min-h-[4.75rem] w-full justify-start gap-3 px-4 text-left whitespace-normal text-base text-foreground`}
               >
                 <CareIcon name={item.icon} className="h-6 w-6 shrink-0 text-accent" />
                 <span className="text-base font-semibold">{item.label}</span>
-              </button>
+              </Button>
             </li>
           ))}
           <li>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setLog("chiller")}
-              className={`${SOFT} flex min-h-[4.75rem] w-full items-center gap-3 px-4 text-left`}
+              className={`${SOFT} h-auto min-h-[4.75rem] w-full justify-start gap-3 px-4 text-left whitespace-normal text-base text-foreground`}
             >
               <CareIcon name="chiller" className="h-6 w-6 shrink-0 text-accent" />
               <span className="text-base font-semibold">{t("chiller.title")}</span>
-            </button>
+            </Button>
           </li>
           {quick.slice(4).map((item) => (
             <li key={item.key}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setLog(item.key)}
-                className={`${SOFT} flex min-h-[4.75rem] w-full items-center gap-3 px-4 text-left`}
+                className={`${SOFT} h-auto min-h-[4.75rem] w-full justify-start gap-3 px-4 text-left whitespace-normal text-base text-foreground`}
               >
                 <CareIcon name={item.icon} className="h-6 w-6 shrink-0 text-accent" />
                 <span className="text-base font-semibold">{item.label}</span>
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -616,6 +621,9 @@ export function HomeDashboard() {
         pumps={sheetPumps}
         babies={babies.map((entry) => ({ id: entry.id, name: entry.name }))}
         babyName={baby?.name ?? null}
+        activePartPumpIds={chillerItems.flatMap((item) =>
+          item.type === "pump_parts" && item.pumpId ? [item.pumpId] : [],
+        )}
         onClose={closeLog}
         onSaved={refreshHome}
       />

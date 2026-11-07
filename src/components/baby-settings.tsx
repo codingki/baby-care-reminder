@@ -6,6 +6,7 @@ import { SectionHeading } from "@/components/care-icon";
 import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSaveLock } from "@/components/use-save-lock";
 import { useI18n } from "@/i18n/provider";
@@ -141,7 +142,7 @@ export function BabySettings() {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-3xl border border-line bg-card p-4">
+    <Card className="gap-3 p-4">
       <SectionHeading icon="baby">{t("settings.baby")}</SectionHeading>
       {!ready ? (
         <p className="text-sm text-muted" role="status">
@@ -218,6 +219,6 @@ export function BabySettings() {
           {note}
         </p>
       ) : null}
-    </section>
+    </Card>
   );
 }
