@@ -10,6 +10,8 @@ import { createClient } from "@/lib/supabase/client";
 export type LogInput = {
   kind: "diaper" | "feed" | "pump";
   diaperKind?: "wet" | "dirty" | "mixed";
+  feedKind?: "bottle" | "breast";
+  breastSide?: "left" | "right";
   amountMl?: number;
   durationSeconds?: number | null;
   pumpId?: string;
@@ -48,15 +50,17 @@ export async function saveLog(input: LogInput): Promise<"synced" | "queued" | "n
   const context = await loadFamilyContext();
   if (!context?.babyId) return "needs-family";
 
+  const breast = input.kind === "feed" && input.feedKind === "breast";
   const row: Record<string, unknown> = {
     baby_id: context.babyId,
     family_id: context.familyId,
     logged_by: context.userId,
     kind: input.kind,
     occurred_at: input.occurredAt ?? new Date().toISOString(),
-    feed_kind: input.kind === "feed" ? "bottle" : null,
+    feed_kind: input.kind === "feed" ? (breast ? "breast" : "bottle") : null,
+    breast_side: breast ? input.breastSide ?? null : null,
     diaper_kind: input.kind === "diaper" ? input.diaperKind : null,
-    amount_ml: input.amountMl ?? null,
+    amount_ml: breast ? null : (input.amountMl ?? null),
     duration_seconds: input.durationSeconds ?? null,
     pump_id: input.kind === "pump" ? input.pumpId : null,
   };

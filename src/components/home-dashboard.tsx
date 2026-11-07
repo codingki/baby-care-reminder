@@ -10,7 +10,7 @@ import type { Locale } from "@/i18n/locales";
 import type { MessageKey } from "@/i18n/translate";
 import { babyAgeParts, joinAgeParts } from "@/lib/baby-age";
 import { CHILLER_LOCATIONS, pumpLabel, type ChillerLocation, type OwnedPump } from "@/lib/device-care";
-import { feedIntervalMinutes, DEFAULT_CARE_INTERVAL_MINUTES } from "@/lib/feed-interval";
+import { diaperIntervalMinutes, feedIntervalMinutes, DEFAULT_CARE_INTERVAL_MINUTES } from "@/lib/feed-interval";
 import { loadRemotePumps } from "@/lib/family-pumps";
 import { readQueue } from "@/lib/offline-queue";
 import { formatSpan, nowMs } from "@/lib/relative-time";
@@ -62,6 +62,8 @@ type LogRow = {
   amountMl: number | null;
   diaperKind: string | null;
   durationSeconds: number | null;
+  feedKind: string | null;
+  breastSide: string | null;
 };
 
 type LogKind = "diaper" | "feed" | "pump";
@@ -113,6 +115,8 @@ function asLog(id: string, row: Record<string, unknown>): LogRow | null {
     amountMl: typeof row.amount_ml === "number" ? row.amount_ml : null,
     diaperKind: typeof row.diaper_kind === "string" ? row.diaper_kind : null,
     durationSeconds: typeof row.duration_seconds === "number" ? row.duration_seconds : null,
+    feedKind: typeof row.feed_kind === "string" ? row.feed_kind : null,
+    breastSide: typeof row.breast_side === "string" ? row.breast_side : null,
   };
 }
 
@@ -196,7 +200,7 @@ export function HomeDashboard() {
         .maybeSingle(),
       supabase
         .from("logs")
-        .select("id, kind, occurred_at, amount_ml, diaper_kind, duration_seconds")
+        .select("id, kind, occurred_at, amount_ml, diaper_kind, duration_seconds, feed_kind, breast_side")
         .eq("family_id", familyId)
         .order("occurred_at", { ascending: false })
         .limit(8),
@@ -213,7 +217,7 @@ export function HomeDashboard() {
         .eq("enabled", true),
       supabase
         .from("babies")
-        .select("name, birth_date, suggested_interval_minutes")
+        .select("name, birth_date, suggested_interval_minutes, diaper_interval_minutes")
         .eq("family_id", familyId)
         .order("created_at")
         .limit(1),
@@ -222,6 +226,9 @@ export function HomeDashboard() {
     const babyRow = babies.data?.[0];
     const interval = feedIntervalMinutes(
       typeof babyRow?.suggested_interval_minutes === "number" ? babyRow.suggested_interval_minutes : null,
+    );
+    const diaperInterval = diaperIntervalMinutes(
+      typeof babyRow?.diaper_interval_minutes === "number" ? babyRow.diaper_interval_minutes : null,
     );
     const reminderFor = (type: string) =>
       (reminders.data ?? []).find(
@@ -242,7 +249,7 @@ export function HomeDashboard() {
                 typeof babyRow.suggested_interval_minutes === "number" ? babyRow.suggested_interval_minutes : null,
             }
           : null,
-      diaperAt: reminderFor("diaper") ?? (lastDiaper ? plus(lastDiaper, CARE_MS) : null),
+      diaperAt: lastDiaper ? plus(lastDiaper, diaperInterval * 60 * 1000) : reminderFor("diaper"),
       feedAt: lastFeed ? plus(lastFeed, interval * 60 * 1000) : reminderFor("feed"),
       pumpAt: reminderFor("pump") ?? (lastPump ? plus(lastPump, CARE_MS) : null),
       logs: (recent.data ?? []).flatMap((row) => {
@@ -328,10 +335,12 @@ export function HomeDashboard() {
 
   const closeSheet = useCallback(() => setSheet(false), []);
   const sheetPumps: SheetPump[] = mergedPumps.map((pump) => ({ id: pump.id, label: pumpLabel(pump) }));
-  const quick: { key: string; href: string; icon: CareIconName; label: string }[] = [
+  const quick: { key: string; href?: string; icon: CareIconName; label: string }[] = [
     { key: "diaper", href: "/log/diaper", icon: "diaper", label: t("home.diaper") },
     { key: "feed", href: "/log/feed", icon: "feed", label: t("home.feed") },
+    { key: "dbf", href: "/log/dbf", icon: "dbf", label: t("home.dbf") },
     { key: "pump", href: "/log/pump", icon: "pump", label: t("home.pump") },
+    { key: "weight", href: "/log/weight", icon: "weight", label: t("home.weight") },
   ];
 
   return (
@@ -375,7 +384,7 @@ export function HomeDashboard() {
                   aria-label={`${card.label}, ${line.text}`}
                   className={`${SOFT} flex min-h-[7.25rem] flex-col items-center justify-center gap-1.5 px-1 py-3 text-center`}
                 >
-                  <CareIcon name={card.icon} className="h-6 w-6 text-accent" />
+                  <CareIcon name={card.icon} className="h-8 w-8 text-accent" />
                   <span
                     className={`max-w-full px-0.5 text-[11px] leading-tight font-semibold whitespace-nowrap ${
                       line.overdue ? "text-accent" : "text-foreground"
@@ -394,9 +403,9 @@ export function HomeDashboard() {
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold tracking-tight">{t("home.title")}</h2>
         <ul className="grid grid-cols-2 gap-2">
-          {quick.map((item) => (
+          {quick.slice(0, 4).map((item) => (
             <li key={item.key}>
-              <Link href={item.href} className={`${SOFT} flex min-h-[4.75rem] items-center gap-3 px-4`}>
+              <Link href={item.href ?? "/"} className={`${SOFT} flex min-h-[4.75rem] items-center gap-3 px-4`}>
                 <CareIcon name={item.icon} className="h-6 w-6 shrink-0 text-accent" />
                 <span className="text-base font-semibold">{item.label}</span>
               </Link>
@@ -412,11 +421,24 @@ export function HomeDashboard() {
               <span className="text-base font-semibold">{t("chiller.title")}</span>
             </button>
           </li>
+          {quick.slice(4).map((item) => (
+            <li key={item.key}>
+              <Link href={item.href ?? "/"} className={`${SOFT} flex min-h-[4.75rem] items-center gap-3 px-4`}>
+                <CareIcon name={item.icon} className="h-6 w-6 shrink-0 text-accent" />
+                <span className="text-base font-semibold">{item.label}</span>
+              </Link>
+            </li>
+          ))}
         </ul>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold tracking-tight">{t("home.recentActivity")}</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-base font-semibold tracking-tight">{t("home.recentActivity")}</h2>
+          <Link href="/timeline" className="text-sm font-semibold text-accent">
+            {t("home.seeAll")}
+          </Link>
+        </div>
         {activities.length === 0 ? (
           <p className={`${SOFT} px-4 py-4 text-sm text-muted`}>{t("home.recentEmpty")}</p>
         ) : (
@@ -548,13 +570,15 @@ function buildActivity(
   ].flatMap((log) => {
     const kind = activityKind(log.kind);
     if (!kind) return [];
+    const breast = log.feedKind === "breast";
+    const detail = logDetail(log, t);
     return [
       {
         id: log.id,
         at: log.occurredAt,
-        icon: kind,
-        title: t(titleKey(kind)),
-        detail: logDetail(log, t),
+        icon: breast ? "dbf" : kind,
+        title: breast ? `${t("home.dbf")} · ${detail}` : t(titleKey(kind)),
+        detail: breast ? "" : detail,
       },
     ];
   });
@@ -595,6 +619,14 @@ function logDetail(log: LogRow, t: (key: MessageKey, vars?: Record<string, strin
     if (log.diaperKind === "mixed") return t("diaper.both");
     if (log.diaperKind === "dry") return t("diaper.dry");
     return "";
+  }
+  if (log.kind === "feed" && log.feedKind === "breast") {
+    const side = log.breastSide === "right" ? t("dbf.right") : t("dbf.left");
+    const minutes =
+      log.durationSeconds && log.durationSeconds > 0
+        ? t("home.durationMinutes", { count: String(Math.max(1, Math.round(log.durationSeconds / 60))) })
+        : "";
+    return [side, minutes].filter(Boolean).join(" · ");
   }
   if (log.kind === "feed") return log.amountMl ? `${log.amountMl} ml` : "";
   if (log.kind === "pump") {

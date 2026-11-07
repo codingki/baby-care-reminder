@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Screen } from "@/components/screen";
 import { useI18n } from "@/i18n/provider";
+import type { MessageKey } from "@/i18n/translate";
 import type { Locale } from "@/i18n/locales";
 import { loadFamilyContext } from "@/lib/family-context";
 import { loadMemberNames } from "@/lib/member-names";
@@ -16,6 +17,9 @@ type TimelineLog = {
   occurredAt: string;
   amountMl: number | null;
   diaperKind: string | null;
+  feedKind: string | null;
+  breastSide: string | null;
+  durationSeconds: number | null;
   by: string | null;
 };
 
@@ -56,7 +60,7 @@ export default function TimelinePage() {
       const [{ data, error }, names] = await Promise.all([
         supabase
           .from("logs")
-          .select("id, kind, occurred_at, amount_ml, diaper_kind, logged_by")
+          .select("id, kind, occurred_at, amount_ml, diaper_kind, feed_kind, breast_side, duration_seconds, logged_by")
           .eq("family_id", context.familyId)
           .gte("occurred_at", since)
           .order("occurred_at", { ascending: false }),
@@ -78,6 +82,9 @@ export default function TimelinePage() {
               occurred_at: row.occurred_at,
               amount_ml: row.amount_ml,
               diaper_kind: row.diaper_kind,
+              feed_kind: row.feed_kind,
+              breast_side: row.breast_side,
+              duration_seconds: row.duration_seconds,
               logged_by: row.logged_by,
             },
             names,
@@ -138,7 +145,7 @@ export default function TimelinePage() {
           <ol className="flex flex-col gap-3">
             {logs.map((log) => (
               <li key={log.id} className="flex items-center gap-2 text-sm">
-                <CareIcon name={logIcon(log.kind)} className="h-4 w-4 shrink-0 text-accent" />
+                <CareIcon name={logIcon(log)} className="h-4 w-4 shrink-0 text-accent" />
                 <span className="font-semibold">{label(log, t)}</span>
                 {log.amountMl ? <span> · {log.amountMl} ml</span> : null}
                 {log.by ? <span> · {log.by}</span> : null}
@@ -167,20 +174,29 @@ function toLog(
     occurredAt,
     amountMl: typeof row.amount_ml === "number" ? row.amount_ml : null,
     diaperKind: typeof row.diaper_kind === "string" ? row.diaper_kind : null,
+    feedKind: typeof row.feed_kind === "string" ? row.feed_kind : null,
+    breastSide: typeof row.breast_side === "string" ? row.breast_side : null,
+    durationSeconds: typeof row.duration_seconds === "number" ? row.duration_seconds : null,
     by: loggedBy && names ? names[loggedBy] ?? null : null,
   };
 }
 
-function logIcon(kind: string): CareIconName {
-  if (kind === "feed") return "feed";
-  if (kind === "pump") return "pump";
+function logIcon(log: TimelineLog): CareIconName {
+  if (log.kind === "feed" && log.feedKind === "breast") return "dbf";
+  if (log.kind === "feed") return "feed";
+  if (log.kind === "pump") return "pump";
   return "diaper";
 }
 
-function label(
-  log: TimelineLog,
-  t: (key: "diaper.title" | "diaper.wet" | "diaper.dirty" | "diaper.both" | "feed.title" | "pump.title") => string,
-) {
+function label(log: TimelineLog, t: (key: MessageKey, vars?: Record<string, string>) => string) {
+  if (log.kind === "feed" && log.feedKind === "breast") {
+    const side = log.breastSide === "right" ? t("dbf.right") : t("dbf.left");
+    const minutes =
+      log.durationSeconds && log.durationSeconds > 0
+        ? t("home.durationMinutes", { count: String(Math.max(1, Math.round(log.durationSeconds / 60))) })
+        : "";
+    return ["DBF", side, minutes].filter(Boolean).join(" · ");
+  }
   if (log.kind === "feed") return t("feed.title");
   if (log.kind === "pump") return t("pump.title");
   if (log.diaperKind === "wet") return `${t("diaper.title")} · ${t("diaper.wet")}`;

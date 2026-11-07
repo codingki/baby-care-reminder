@@ -11,7 +11,6 @@ import type { MessageKey } from "@/i18n/translate";
 const navItems = [
   { href: "/", labelKey: "shell.navHome", icon: "home" },
   { href: "/chiller", labelKey: "shell.navChiller", icon: "chiller" },
-  { href: "/timeline", labelKey: "shell.navSchedule", icon: "schedule" },
   { href: "/family", labelKey: "shell.navFamily", icon: "family" },
 ] as const satisfies ReadonlyArray<{ href: string; labelKey: MessageKey; icon: CareIconName }>;
 
@@ -21,7 +20,9 @@ function isActive(pathname: string, href: string) {
       pathname === "/" ||
       pathname.startsWith("/log") ||
       pathname.startsWith("/settings") ||
-      pathname.startsWith("/onboarding")
+      pathname.startsWith("/onboarding") ||
+      pathname === "/timeline" ||
+      pathname.startsWith("/timeline/")
     );
   }
   if (href === "/chiller") {
@@ -32,7 +33,6 @@ function isActive(pathname: string, href: string) {
       pathname.startsWith("/bottles/")
     );
   }
-  if (href === "/timeline") return pathname === "/timeline" || pathname.startsWith("/timeline/");
   if (href === "/family") {
     return pathname === "/family" || pathname.startsWith("/family/") || pathname.startsWith("/join");
   }
@@ -122,7 +122,7 @@ function BottomNav({ pathname }: { pathname: string | null }) {
       aria-label={t("shell.navLabel")}
       className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-line bg-card/95 backdrop-blur"
     >
-      <ul className="grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
+      <ul className="grid grid-cols-3 pb-[env(safe-area-inset-bottom)]">
         {navItems.map((item) => {
           const active = pathname ? isActive(pathname, item.href) : false;
           return (

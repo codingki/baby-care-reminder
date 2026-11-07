@@ -7,7 +7,9 @@ import {
   Clock,
   House,
   Languages,
+  Heart,
   LogOut,
+  Scale,
   Settings,
   Snowflake,
   Timer,
@@ -32,7 +34,9 @@ export type CareIconName =
   | "bellRing"
   | "logOut"
   | "close"
-  | "settings";
+  | "settings"
+  | "dbf"
+  | "weight";
 
 export function SectionHeading({
   icon,
@@ -84,6 +88,10 @@ export function CareIcon({
       return <X {...icon} />;
     case "settings":
       return <Settings {...icon} />;
+    case "dbf":
+      return <Heart {...icon} />;
+    case "weight":
+      return <Scale {...icon} />;
     case "chiller":
       return <Snowflake {...icon} />;
     case "diaper":

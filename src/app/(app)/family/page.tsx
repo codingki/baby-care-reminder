@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SavingLabel } from "@/components/saving-label";
+import { BabyProfile } from "@/components/baby-profile";
 import { Screen } from "@/components/screen";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
@@ -178,6 +179,7 @@ export default function FamilyPage() {
       ) : null}
       {state === "ready" ? (
         <>
+          <BabyProfile />
           <ul className="flex flex-col gap-3">
             {members.map((member) => (
               <li key={member.id} className="rounded-3xl border border-line bg-card px-5 py-4">
