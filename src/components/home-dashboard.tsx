@@ -8,7 +8,7 @@ import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
 import type { MessageKey } from "@/i18n/translate";
-import { babyAge } from "@/lib/baby-age";
+import { babyAgeParts, joinAgeParts } from "@/lib/baby-age";
 import { CHILLER_LOCATIONS, pumpLabel, type ChillerLocation, type OwnedPump } from "@/lib/device-care";
 import { feedIntervalMinutes, DEFAULT_CARE_INTERVAL_MINUTES } from "@/lib/feed-interval";
 import { loadRemotePumps } from "@/lib/family-pumps";
@@ -52,6 +52,7 @@ type ChillerRow = {
   expiresAt: string;
   volumeMl: number | null;
   pumpId: string | null;
+  note: string | null;
 };
 
 type LogRow = {
@@ -74,15 +75,6 @@ function isLocation(value: string): value is ChillerLocation {
 
 function plus(iso: string, ms: number) {
   return new Date(new Date(iso).getTime() + ms).toISOString();
-}
-
-function soonest(items: ChillerRow[], now: number): ChillerRow | null {
-  if (items.length === 0) return null;
-  const upcoming = items
-    .filter((item) => new Date(item.expiresAt).getTime() >= now)
-    .sort((left, right) => (left.expiresAt < right.expiresAt ? -1 : 1));
-  if (upcoming[0]) return upcoming[0];
-  return [...items].sort((left, right) => (left.expiresAt < right.expiresAt ? 1 : -1))[0] ?? null;
 }
 
 function clock(iso: string, locale: Locale) {
@@ -136,6 +128,7 @@ function asChiller(id: string, row: Record<string, unknown>): ChillerRow | null 
     expiresAt: row.expires_at,
     volumeMl: typeof row.volume_ml === "number" ? row.volume_ml : null,
     pumpId: typeof row.pump_id === "string" ? row.pump_id : null,
+    note: typeof row.note === "string" && row.note.trim() ? row.note.trim() : null,
   };
 }
 
@@ -209,7 +202,7 @@ export function HomeDashboard() {
         .limit(8),
       supabase
         .from("chiller_items")
-        .select("id, type, location, stored_at, expires_at, volume_ml, pump_id")
+        .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note")
         .eq("family_id", familyId)
         .order("expires_at")
         .limit(40),
@@ -300,6 +293,7 @@ export function HomeDashboard() {
     expiresAt: item.expiresAt,
     volumeMl: item.volumeMl,
     pumpId: item.pumpId,
+    note: item.note?.trim() || null,
   }));
   const queuedChiller = readQueue().flatMap((item) => {
     if (item.kind !== "chiller") return [];
@@ -307,7 +301,9 @@ export function HomeDashboard() {
     return row ? [row] : [];
   });
   const chillerItems = mergeChiller(chiller, [...deviceChiller, ...queuedChiller]);
-  const nextChiller = now === null ? null : soonest(chillerItems, now);
+  const stored = [...chillerItems]
+    .sort((left, right) => (left.expiresAt < right.expiresAt ? -1 : 1))
+    .slice(0, 3);
   const queuedLogs = readQueue().flatMap((item) => {
     if (item.kind !== "log") return [];
     const log = asLog(item.id, item.row);
@@ -315,14 +311,8 @@ export function HomeDashboard() {
   });
   const activities = buildActivity(logs, queuedLogs, chillerItems, mergedPumps, t);
 
-  const age = baby ? ageLabel(baby.birthDate, t) : null;
+  const age = baby ? ageLabel(baby.birthDate, locale, t) : null;
   const initial = baby ? baby.name.trim().charAt(0).toUpperCase() || "?" : "";
-  const overdue =
-    now !== null &&
-    (isOverdue(diaperAt, now) ||
-      isOverdue(feedAt, now) ||
-      isOverdue(pumpAt, now) ||
-      isOverdue(nextChiller?.expiresAt ?? null, now));
 
   const cards: {
     key: string;
@@ -334,13 +324,6 @@ export function HomeDashboard() {
     { key: "diaper", href: "/log/diaper", icon: "diaper", label: t("home.diaper"), at: diaperAt },
     { key: "feed", href: "/log/feed", icon: "feed", label: t("home.feed"), at: feedAt },
     { key: "pump", href: "/log/pump", icon: "pump", label: t("home.pump"), at: pumpAt },
-    {
-      key: "chiller",
-      href: nextChiller ? `/chiller/${nextChiller.id}` : "/chiller",
-      icon: "chiller",
-      label: t("chiller.title"),
-      at: nextChiller?.expiresAt ?? null,
-    },
   ];
 
   const closeSheet = useCallback(() => setSheet(false), []);
@@ -373,19 +356,16 @@ export function HomeDashboard() {
         </div>
         <Link
           href="/settings"
-          aria-label={overdue ? t("home.bellDue") : t("home.bell")}
-          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground"
+          aria-label={t("shell.navSettings")}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground"
         >
-          <CareIcon name="bell" className="h-6 w-6" />
-          {overdue ? (
-            <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-white" />
-          ) : null}
+          <CareIcon name="settings" className="h-6 w-6" />
         </Link>
       </header>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold tracking-tight">{t("home.nextUp")}</h2>
-        <ul className="grid grid-cols-4 gap-2">
+        <ul className="grid grid-cols-3 gap-2">
           {cards.map((card) => {
             const line = countdownLine(card.at, now, t);
             return (
@@ -457,6 +437,52 @@ export function HomeDashboard() {
         )}
       </section>
 
+      {stored.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold tracking-tight">{t("home.inChiller")}</h2>
+            <Link href="/chiller" className="text-sm font-semibold text-accent">
+              {t("home.seeAll")}
+            </Link>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {stored.map((item) => {
+              const expired = now !== null && new Date(item.expiresAt).getTime() < now;
+              const pump = mergedPumps.find((entry) => entry.id === item.pumpId);
+              const label =
+                item.type === "milk"
+                  ? item.volumeMl
+                    ? `${item.volumeMl} ml`
+                    : t("chiller.milk")
+                  : pump
+                    ? pumpLabel(pump)
+                    : t("chiller.parts");
+              const left =
+                now === null
+                  ? "…"
+                  : expired
+                    ? t("home.expired")
+                    : t("home.timeLeft", { time: formatSpan(new Date(item.expiresAt).getTime() - now) });
+              return (
+                <li key={item.id}>
+                  <Link href="/chiller" className={`${SOFT} flex items-center gap-3 px-4 py-3`}>
+                    <CareIcon
+                      name={item.type === "milk" ? "feed" : "chiller"}
+                      className="h-6 w-6 shrink-0 text-accent"
+                    />
+                    <p className="min-w-0 text-sm">
+                      <span className="font-semibold">{label}</span>
+                      <span className="text-muted"> · </span>
+                      <span className={expired ? "font-semibold text-accent" : "text-muted"}>{left}</span>
+                    </p>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
       <ChillerSheet
         open={sheet}
         pumps={sheetPumps}
@@ -465,11 +491,6 @@ export function HomeDashboard() {
       />
     </section>
   );
-}
-
-function isOverdue(at: string | null, now: number) {
-  if (!at) return false;
-  return new Date(at).getTime() < now;
 }
 
 function countdownLine(
@@ -485,19 +506,18 @@ function countdownLine(
   return { text: t("home.inRelative", { time: span }), overdue: false };
 }
 
-function ageLabel(
-  birthDate: string,
-  t: (
-    key: "home.ageDay" | "home.ageDays" | "home.ageMonth" | "home.ageMonths" | "home.ageYear" | "home.ageYears",
-    vars?: Record<string, string>,
-  ) => string,
-) {
-  const age = babyAge(birthDate);
+function ageLabel(birthDate: string, locale: Locale, t: (key: MessageKey, vars?: Record<string, string>) => string) {
+  const age = babyAgeParts(birthDate);
   if (!age) return "";
-  const count = String(age.count);
-  if (age.unit === "year") return age.count === 1 ? t("home.ageYear") : t("home.ageYears", { count });
-  if (age.unit === "month") return age.count === 1 ? t("home.ageMonth") : t("home.ageMonths", { count });
-  return age.count === 1 ? t("home.ageDay") : t("home.ageDays", { count });
+  const parts: string[] = [];
+  if (age.months === 1) parts.push(t("home.monthOne"));
+  else if (age.months > 1) parts.push(t("home.monthMany", { count: String(age.months) }));
+  if (age.weeks === 1) parts.push(t("home.weekOne"));
+  else if (age.weeks > 1) parts.push(t("home.weekMany", { count: String(age.weeks) }));
+  if (age.days === 1) parts.push(t("home.dayOne"));
+  else if (age.days > 1) parts.push(t("home.dayMany", { count: String(age.days) }));
+  if (parts.length === 0) parts.push(t("home.dayMany", { count: "0" }));
+  return t("home.ageOld", { age: joinAgeParts(parts, locale === "id" ? "id" : "en") });
 }
 
 function mergePumps(remote: OwnedPump[], local: OwnedPump[]) {

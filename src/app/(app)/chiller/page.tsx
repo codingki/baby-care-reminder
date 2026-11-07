@@ -83,6 +83,7 @@ export default function ChillerPage() {
                   <span>
                     <p className="text-base font-semibold">{title}</p>
                     <p className="mt-1 text-sm text-muted">{t(`chiller.${item.location}`)}</p>
+                    {item.type === "milk" && item.note ? <p className="mt-1 text-sm">{item.note}</p> : null}
                     <p className={`mt-1 text-sm ${expired ? "font-semibold text-accent" : ""}`}>{when}</p>
                   </span>
                 </Link>

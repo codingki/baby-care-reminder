@@ -70,6 +70,7 @@ export async function saveChillerItem(input: {
   volumeMl: number | null;
   pumpId: string | null;
   washByHours: number;
+  note?: string | null;
 }): Promise<{ status: "synced" | "queued" | "error"; id: string }> {
   const id = crypto.randomUUID();
   const context = await loadFamilyContext();
@@ -78,6 +79,7 @@ export async function saveChillerItem(input: {
     input.type === "milk"
       ? milkExpiresAt(storedAt, input.location)
       : new Date(storedAt.getTime() + input.washByHours * 60 * 60 * 1000);
+  const note = input.type === "milk" ? input.note?.trim() || null : null;
   const item = {
     id,
     type: input.type,
@@ -86,6 +88,7 @@ export async function saveChillerItem(input: {
     expiresAt: expiresAt.toISOString(),
     pumpId: input.pumpId,
     volumeMl: input.type === "milk" ? input.volumeMl : null,
+    note,
   };
   rememberChillerItem(item);
   if (!context?.babyId) return { status: "queued", id };
@@ -100,6 +103,7 @@ export async function saveChillerItem(input: {
     expires_at: item.expiresAt,
     volume_ml: item.volumeMl,
     pump_id: input.pumpId,
+    note,
     created_by: context.userId,
   };
   const status = await writeRow("chiller", row);

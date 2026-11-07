@@ -102,6 +102,13 @@ export function ChillerDetail({ id }: { id: string }) {
         {item.volumeMl !== null ? (
           <p className="text-sm">{t("chiller.volume", { amount: String(item.volumeMl) })}</p>
         ) : null}
+        {item.type === "milk" && item.note ? (
+          <p className="text-sm">
+            <span className="font-semibold">{t("chiller.note")}</span>
+            <span className="text-muted"> · </span>
+            {item.note}
+          </p>
+        ) : null}
         <p className={`text-sm font-semibold ${expired ? "text-accent" : ""}`}>{relative}</p>
         {item.type === "pump_parts" ? (
           <PartsDisclaimer time={when} seen={care.partsDisclaimerSeen} />

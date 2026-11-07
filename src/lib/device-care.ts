@@ -23,6 +23,7 @@ export type ChillerItem = {
   expiresAt: string;
   pumpId: string | null;
   volumeMl: number | null;
+  note?: string | null;
 };
 
 export type CareState = {

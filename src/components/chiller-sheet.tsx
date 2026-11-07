@@ -15,6 +15,8 @@ export type SheetPump = {
   label: string;
 };
 
+type Step = "choose" | "milk" | "parts";
+
 export function ChillerSheet({
   open,
   pumps,
@@ -30,11 +32,13 @@ export function ChillerSheet({
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const lock = useRef(false);
-  const [pending, setPending] = useState<"milk" | "parts" | null>(null);
+  const [step, setStep] = useState<Step>("choose");
+  const [pending, setPending] = useState(false);
   const [milkMl, setMilkMl] = useState("");
+  const [milkNote, setMilkNote] = useState("");
   const [location, setLocation] = useState<(typeof LOCATIONS)[number]>("fridge");
   const [pumpId, setPumpId] = useState<string>("");
-  const [note, setNote] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const selectedPump = pumps.some((pump) => pump.id === pumpId) ? pumpId : (pumps[0]?.id ?? "");
   const milkAmount = Number(milkMl);
@@ -43,7 +47,7 @@ export function ChillerSheet({
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
-    panel?.querySelector<HTMLElement>("input, select, button")?.focus();
+    panel?.querySelector<HTMLElement>("button, input, select, textarea")?.focus();
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
@@ -54,15 +58,20 @@ export function ChillerSheet({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
     };
-  }, [open, onClose]);
+  }, [open, onClose, step]);
 
   if (!open) return null;
+
+  function close() {
+    setStep("choose");
+    onClose();
+  }
 
   async function storeMilk() {
     if (lock.current || !milkReady) return;
     lock.current = true;
-    setPending("milk");
-    setNote(null);
+    setPending(true);
+    setStatus(null);
     try {
       const context = await loadFamilyContext();
       const saved = await saveChillerItem({
@@ -71,25 +80,28 @@ export function ChillerSheet({
         volumeMl: Math.round(milkAmount),
         pumpId: null,
         washByHours: context?.washByHours ?? 24,
+        note: milkNote,
       });
       if (saved.status === "error") {
-        setNote(t("common.failed"));
+        setStatus(t("common.failed"));
         return;
       }
       setMilkMl("");
-      setNote(saved.status === "queued" ? t("common.queued") : t("common.saved"));
+      setMilkNote("");
+      setStatus(saved.status === "queued" ? t("common.queued") : t("common.saved"));
+      setStep("choose");
       onSaved();
     } finally {
       lock.current = false;
-      setPending(null);
+      setPending(false);
     }
   }
 
   async function storeParts() {
     if (lock.current || !selectedPump) return;
     lock.current = true;
-    setPending("parts");
-    setNote(null);
+    setPending(true);
+    setStatus(null);
     try {
       const context = await loadFamilyContext();
       const saved = await saveChillerItem({
@@ -100,19 +112,20 @@ export function ChillerSheet({
         washByHours: context?.washByHours ?? 24,
       });
       if (saved.status === "error") {
-        setNote(t("common.failed"));
+        setStatus(t("common.failed"));
         return;
       }
-      setNote(saved.status === "queued" ? t("common.queued") : t("common.saved"));
+      setStatus(saved.status === "queued" ? t("common.queued") : t("common.saved"));
+      setStep("choose");
       onSaved();
     } finally {
       lock.current = false;
-      setPending(null);
+      setPending(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30" onClick={onClose}>
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30" onClick={close}>
       <div
         ref={panelRef}
         role="dialog"
@@ -127,7 +140,7 @@ export function ChillerSheet({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label={t("home.close")}
             className="flex h-11 w-11 items-center justify-center rounded-full text-muted"
           >
@@ -135,108 +148,163 @@ export function ChillerSheet({
           </button>
         </div>
 
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void storeMilk();
-          }}
-        >
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <CareIcon name="feed" className="h-4 w-4 text-accent" />
-            {t("home.storeMilk")}
-          </h3>
-          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-ml">
-            {t("pump.milkAmount")}
-            <input
-              id="sheet-milk-ml"
-              type="number"
-              inputMode="decimal"
-              min={1}
-              value={milkMl}
-              onChange={(event) => setMilkMl(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-where">
-            {t("pump.location")}
-            <select
-              id="sheet-milk-where"
-              value={location}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (value === "fridge" || value === "freezer" || value === "cooler") setLocation(value);
+        {step === "choose" ? (
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setStatus(null);
+                setStep("milk");
               }}
-              className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
+              className="flex min-h-16 items-center gap-3 rounded-2xl bg-[#f3f5f3] px-4 text-left"
             >
-              {LOCATIONS.map((option) => (
-                <option key={option} value={option}>
-                  {t(`chiller.${option}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            disabled={pending !== null || !milkReady}
-            aria-busy={pending === "milk"}
-            className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-          >
-            {pending === "milk" ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-          </button>
-        </form>
+              <CareIcon name="feed" className="h-6 w-6 text-accent" />
+              <span className="text-base font-semibold">{t("home.storeMilk")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStatus(null);
+                setStep("parts");
+              }}
+              className="flex min-h-16 items-center gap-3 rounded-2xl bg-[#f3f5f3] px-4 text-left"
+            >
+              <CareIcon name="pump" className="h-6 w-6 text-accent" />
+              <span className="text-base font-semibold">{t("home.storeParts")}</span>
+            </button>
+            <Link href="/chiller" onClick={close} className="text-sm font-semibold text-accent">
+              {t("home.chillerList")}
+            </Link>
+          </div>
+        ) : null}
 
-        <form
-          className="flex flex-col gap-3 border-t border-line pt-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void storeParts();
-          }}
-        >
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <CareIcon name="pump" className="h-4 w-4 text-accent" />
-            {t("home.storeParts")}
-          </h3>
-          {pumps.length === 0 ? (
-            <p className="text-sm leading-6">
-              {t("pump.noPumps")}{" "}
-              <Link href="/settings" className="font-semibold text-accent" onClick={onClose}>
-                {t("pump.addPumps")}
-              </Link>
-            </p>
-          ) : (
-            <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-pump">
-              {t("pump.pickPump")}
+        {step === "milk" ? (
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void storeMilk();
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setStep("choose")}
+              className="self-start text-sm font-semibold text-accent"
+            >
+              {t("common.back")}
+            </button>
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <CareIcon name="feed" className="h-4 w-4 text-accent" />
+              {t("home.storeMilk")}
+            </h3>
+            <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-ml">
+              {t("pump.milkAmount")}
+              <input
+                id="sheet-milk-ml"
+                type="number"
+                inputMode="decimal"
+                min={1}
+                value={milkMl}
+                onChange={(event) => setMilkMl(event.target.value)}
+                className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-where">
+              {t("pump.location")}
               <select
-                id="sheet-pump"
-                value={selectedPump}
-                onChange={(event) => setPumpId(event.target.value)}
+                id="sheet-milk-where"
+                value={location}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "fridge" || value === "freezer" || value === "cooler") setLocation(value);
+                }}
                 className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
               >
-                {pumps.map((pump) => (
-                  <option key={pump.id} value={pump.id}>
-                    {pump.label}
+                {LOCATIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {t(`chiller.${option}`)}
                   </option>
                 ))}
               </select>
             </label>
-          )}
-          <button
-            type="submit"
-            disabled={pending !== null || !selectedPump}
-            aria-busy={pending === "parts"}
-            className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
-          >
-            {pending === "parts" ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-          </button>
-        </form>
+            <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-note">
+              {t("chiller.note")}
+              <span className="font-normal text-muted"> · {t("chiller.noteOptional")}</span>
+              <input
+                id="sheet-milk-note"
+                value={milkNote}
+                onChange={(event) => setMilkNote(event.target.value)}
+                className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={pending || !milkReady}
+              aria-busy={pending}
+              className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
+            >
+              {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+            </button>
+          </form>
+        ) : null}
 
-        <Link href="/chiller" onClick={onClose} className="text-sm font-semibold text-accent">
-          {t("home.chillerList")}
-        </Link>
-        {note ? (
+        {step === "parts" ? (
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void storeParts();
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setStep("choose")}
+              className="self-start text-sm font-semibold text-accent"
+            >
+              {t("common.back")}
+            </button>
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <CareIcon name="pump" className="h-4 w-4 text-accent" />
+              {t("home.storeParts")}
+            </h3>
+            {pumps.length === 0 ? (
+              <p className="text-sm leading-6">
+                {t("pump.noPumps")}{" "}
+                <Link href="/settings" className="font-semibold text-accent" onClick={close}>
+                  {t("pump.addPumps")}
+                </Link>
+              </p>
+            ) : (
+              <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-pump">
+                {t("pump.pickPump")}
+                <select
+                  id="sheet-pump"
+                  value={selectedPump}
+                  onChange={(event) => setPumpId(event.target.value)}
+                  className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
+                >
+                  {pumps.map((pump) => (
+                    <option key={pump.id} value={pump.id}>
+                      {pump.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              type="submit"
+              disabled={pending || !selectedPump}
+              aria-busy={pending}
+              className="min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50"
+            >
+              {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+            </button>
+          </form>
+        ) : null}
+
+        {status ? (
           <p role="status" className="text-sm">
-            {note}
+            {status}
           </p>
         ) : null}
       </div>

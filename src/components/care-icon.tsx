@@ -8,6 +8,7 @@ import {
   House,
   Languages,
   LogOut,
+  Settings,
   Snowflake,
   Timer,
   Users,
@@ -30,7 +31,8 @@ export type CareIconName =
   | "beaker"
   | "bellRing"
   | "logOut"
-  | "close";
+  | "close"
+  | "settings";
 
 export function SectionHeading({
   icon,
@@ -80,6 +82,8 @@ export function CareIcon({
       return <LogOut {...icon} />;
     case "close":
       return <X {...icon} />;
+    case "settings":
+      return <Settings {...icon} />;
     case "chiller":
       return <Snowflake {...icon} />;
     case "diaper":

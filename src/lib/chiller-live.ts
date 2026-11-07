@@ -16,7 +16,7 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
   const [{ data: items, error }, { data: pumps }, { data: models }] = await Promise.all([
     supabase
       .from("chiller_items")
-      .select("id, type, location, stored_at, expires_at, volume_ml, pump_id")
+      .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note")
       .eq("family_id", context.familyId)
       .order("expires_at"),
     supabase
@@ -43,6 +43,7 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
         expiresAt: item.expires_at as string,
         pumpId: (item.pump_id as string | null) ?? null,
         volumeMl: (item.volume_ml as number | null) ?? null,
+        note: typeof item.note === "string" && item.note.trim() ? item.note.trim() : null,
         pumpName,
       },
     ];
