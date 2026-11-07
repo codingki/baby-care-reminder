@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/client";
+import { chooseBaby } from "@/lib/selected-baby";
 
 export type FamilyContext = {
   userId: string;
   familyId: string;
   babyId: string | null;
+  babyName: string | null;
   washByHours: number;
   suggestedMl: number | null;
   unit: string;
@@ -31,17 +33,22 @@ export async function loadFamilyContext(): Promise<FamilyContext | null> {
       .maybeSingle(),
     supabase
       .from("babies")
-      .select("id, suggested_ml")
+      .select("id, name, suggested_ml")
       .eq("family_id", membership.family_id)
-      .order("created_at")
-      .limit(1),
+      .order("created_at"),
   ]);
 
-  const baby = babies?.[0];
+  const roster = babies ?? [];
+  const selectedId = chooseBaby(
+    membership.family_id,
+    roster.flatMap((baby) => (typeof baby.id === "string" ? [baby.id] : [])),
+  );
+  const baby = roster.find((row) => row.id === selectedId) ?? null;
   return {
     userId,
     familyId: membership.family_id,
     babyId: baby?.id ?? null,
+    babyName: typeof baby?.name === "string" ? baby.name : null,
     washByHours: family?.pump_parts_wash_by_hours ?? 24,
     suggestedMl: baby?.suggested_ml ?? null,
     unit: family?.unit === "oz" ? "oz" : "ml",

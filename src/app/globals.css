@@ -1,27 +1,84 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #3d4441;
   --card: #ffffff;
+  --card-foreground: #3d4441;
+  --popover: #ffffff;
+  --popover-foreground: #3d4441;
+  /* Existing screens use accent as sage and muted as secondary text. */
   --accent: #5f7f6c;
   --accent-foreground: #ffffff;
   --muted: #8b938e;
   --line: #e4e7e4;
   --danger: #c4453c;
-  color-scheme: light;
+  --soft: #f3f5f3;
+  --primary: #5f7f6c;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f5f3;
+  --secondary-foreground: #3d4441;
+  --muted-foreground: #8b938e;
+  --destructive: #c4453c;
+  --border: #e4e7e4;
+  --input: #e4e7e4;
+  --ring: #5f7f6c;
+  --chart-1: #5f7f6c;
+  --chart-2: #8b938e;
+  --chart-3: #3d4441;
+  --chart-4: #c4453c;
+  --chart-5: #e7eee9;
+  --radius: 1rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #3d4441;
+  --sidebar-primary: #5f7f6c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f3f5f3;
+  --sidebar-accent-foreground: #3d4441;
+  --sidebar-border: #e4e7e4;
+  --sidebar-ring: #5f7f6c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
   --color-line: var(--line);
   --color-danger: var(--danger);
+  --color-soft: var(--soft);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-heading: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 html,
@@ -44,12 +101,22 @@ select {
   scroll-margin-bottom: 6rem;
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 @utility safe-x {
   padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
   padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
 }

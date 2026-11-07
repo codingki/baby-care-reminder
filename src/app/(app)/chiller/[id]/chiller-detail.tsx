@@ -49,6 +49,8 @@ export function ChillerDetail({ id }: { id: string }) {
           ? {
               ...local,
               pumpName: pump ? pumpLabel(pump) : null,
+              babyId: null,
+              babyName: null,
               clearedAt: local.clearedAt ?? null,
               clearedReason: local.clearedReason ?? null,
             }
@@ -106,6 +108,7 @@ export function ChillerDetail({ id }: { id: string }) {
           {title}
         </h2>
         <p className="text-sm text-muted">{t(`chiller.${item.location}`)}</p>
+        {item.type === "milk" && item.babyName ? <p className="text-sm font-semibold">{item.babyName}</p> : null}
         {item.volumeMl !== null ? (
           <p className="text-sm">{t("chiller.volume", { amount: String(item.volumeMl) })}</p>
         ) : null}

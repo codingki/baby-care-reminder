@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { bindAppFrame } from "@/components/ui/use-app-frame";
 
 export function PhoneFrame({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -45,10 +47,14 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
   return (
     <div
       id="app-frame"
-      ref={ref}
+      ref={(node) => {
+        ref.current = node;
+        bindAppFrame(node);
+      }}
       className="fixed inset-x-0 top-0 z-10 mx-auto flex h-dvh w-full max-w-none flex-col overflow-hidden rounded-none bg-background sm:max-w-md sm:shadow-[0_0_0_1px_var(--line)]"
     >
       {children}
+      <Toaster />
     </div>
   );
 }

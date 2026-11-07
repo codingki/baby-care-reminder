@@ -34,11 +34,11 @@ type Subscription = {
 const copy = {
   en: {
     title: "Baby Care",
-    diaper: "Diaper is due",
-    feed: "Feed is due",
-    pump: "Pump is due",
-    pump_parts: "Wash pump parts soon",
-    milk: "Milk in the chiller is expiring",
+    diaper: "Diaper due",
+    feed: "Feed due",
+    pump: "Pump due",
+    pump_parts: "Wash pump parts",
+    milk: "Milk expiring",
   },
   id: {
     title: "Perawatan Bayi",
@@ -81,7 +81,7 @@ Deno.serve(async (request) => {
     await Promise.all([
       supabase
         .from("reminders")
-        .select("id, family_id, reminder_type, audience")
+        .select("id, family_id, baby_id, reminder_type, audience")
         // next_due_at is set when a log is saved. Feeds use suggested_interval_minutes, or 120 when null.
         .lte("next_due_at", nowIso)
         .eq("enabled", true)
@@ -89,7 +89,7 @@ Deno.serve(async (request) => {
         .limit(200),
       supabase
         .from("chiller_items")
-        .select("id, family_id")
+        .select("id, family_id, baby_id")
         .eq("type", "milk")
         .lte("expires_at", soon)
         .is("notified_at", null)
@@ -105,6 +105,7 @@ Deno.serve(async (request) => {
     ...(reminders ?? []).map((row) => ({
       id: row.id as string,
       familyId: row.family_id as string,
+      babyId: typeof row.baby_id === "string" ? row.baby_id : null,
       kind: row.reminder_type as string,
       audience: row.audience as string,
       table: "reminders" as const,
@@ -112,6 +113,7 @@ Deno.serve(async (request) => {
     ...(milk ?? []).map((row) => ({
       id: row.id as string,
       familyId: row.family_id as string,
+      babyId: typeof row.baby_id === "string" ? row.baby_id : null,
       kind: "milk",
       audience: "caregivers",
       table: "chiller_items" as const,
@@ -123,6 +125,15 @@ Deno.serve(async (request) => {
   }
 
   const familyIds = [...new Set(due.map((item) => item.familyId))];
+  const babyIds = [...new Set(due.flatMap((item) => (item.babyId ? [item.babyId] : [])))];
+  const { data: babyRows } = babyIds.length
+    ? await supabase.from("babies").select("id, name").in("id", babyIds)
+    : { data: [] };
+  const babyNames = new Map(
+    (babyRows ?? []).flatMap((baby) =>
+      typeof baby.id === "string" && typeof baby.name === "string" ? [[baby.id, baby.name] as const] : [],
+    ),
+  );
   const { data: members } = await supabase
     .from("family_members")
     .select("user_id, family_id, role")
@@ -163,7 +174,9 @@ Deno.serve(async (request) => {
       const devices = subscriptionRows.filter((row) => row.user_id === member.user_id);
       const language = prefs?.language === "id" ? "id" : "en";
       const text = copy[language];
-      const body = text[item.kind as keyof typeof text] ?? text.feed;
+      const phrase = text[item.kind as keyof typeof text] ?? text.feed;
+      const babyName = item.babyId ? babyNames.get(item.babyId) ?? null : null;
+      const body = babyName ? `${babyName} · ${phrase}` : phrase;
       for (const device of devices) {
         try {
           await webpush.sendNotification(

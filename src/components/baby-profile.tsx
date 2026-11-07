@@ -1,17 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { BabyAvatar, saveBabyPhoto } from "@/components/baby-photo";
 import { CareIcon } from "@/components/care-icon";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
 import { loadFamilyContext } from "@/lib/family-context";
+import { rememberBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
 
 type WeightRow = {
   id: string;
   grams: number;
   on: string;
+};
+
+type BabyCard = {
+  id: string;
+  name: string;
+  photoPath: string | null;
+  weights: WeightRow[];
 };
 
 function formatKg(grams: number) {
@@ -29,70 +38,125 @@ function formatDate(value: string, locale: Locale) {
 
 export function BabyProfile() {
   const { locale, t } = useI18n();
-  const [name, setName] = useState<string | null>(null);
-  const [rows, setRows] = useState<WeightRow[]>([]);
+  const router = useRouter();
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [babies, setBabies] = useState<BabyCard[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     void (async () => {
       const context = await loadFamilyContext();
-      if (!context?.babyId) {
+      if (!context) {
         setReady(true);
         return;
       }
+      setFamilyId(context.familyId);
       const supabase = createClient();
-      const [baby, history] = await Promise.all([
-        supabase.from("babies").select("name, weight_grams").eq("id", context.babyId).maybeSingle(),
+      const [babyResult, history] = await Promise.all([
+        supabase
+          .from("babies")
+          .select("id, name, photo_path")
+          .eq("family_id", context.familyId)
+          .order("created_at"),
         supabase
           .from("weight_logs")
-          .select("id, weight_grams, weighed_on")
-          .eq("baby_id", context.babyId)
+          .select("id, baby_id, weight_grams, weighed_on")
+          .eq("family_id", context.familyId)
           .order("weighed_on", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(20),
+          .order("created_at", { ascending: false }),
       ]);
-      if (typeof baby.data?.name === "string") setName(baby.data.name);
-      setRows(
-        (history.data ?? []).flatMap((row) => {
-          if (typeof row.weight_grams !== "number" || typeof row.weighed_on !== "string") return [];
-          return [{ id: String(row.id), grams: row.weight_grams, on: row.weighed_on }];
+      const weights = history.data ?? [];
+      setBabies(
+        (babyResult.data ?? []).flatMap((baby) => {
+          if (typeof baby.id !== "string" || typeof baby.name !== "string") return [];
+          return [
+            {
+              id: baby.id,
+              name: baby.name,
+              photoPath: typeof baby.photo_path === "string" ? baby.photo_path : null,
+              weights: weights.flatMap((row) => {
+                if (row.baby_id !== baby.id) return [];
+                if (typeof row.weight_grams !== "number" || typeof row.weighed_on !== "string") return [];
+                return [{ id: String(row.id), grams: row.weight_grams, on: row.weighed_on }];
+              }),
+            },
+          ];
         }),
       );
       setReady(true);
     })();
   }, []);
 
-  if (!ready || !name) return null;
-  const latest = rows[0];
+  if (!ready) return null;
 
   return (
-    <section className="flex flex-col gap-3 rounded-3xl border border-line bg-card px-5 py-4">
-      <h2 className="flex items-center gap-2 text-base font-semibold">
-        <CareIcon name="baby" className="h-5 w-5 text-accent" />
-        {name}
-      </h2>
-      <p className="text-sm text-muted">{t("family.babyProfile")}</p>
-      <p className="text-base font-semibold">
-        {t("weight.latest")}
-        {" · "}
-        {latest ? t("weight.kgValue", { kg: formatKg(latest.grams) }) : t("weight.empty")}
-      </p>
-      {rows.length > 0 ? (
-        <>
-          <h3 className="text-sm font-semibold">{t("weight.history")}</h3>
-          <ul className="flex flex-col gap-2">
-            {rows.map((row) => (
-              <li key={row.id} className="flex items-baseline justify-between gap-3 text-sm">
-                <span>{formatDate(row.on, locale)}</span>
-                <span className="font-semibold">{t("weight.kgValue", { kg: formatKg(row.grams) })}</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
-      <Link href="/log/weight" className="text-sm font-semibold text-accent">
-        {t("family.logWeight")}
-      </Link>
+    <section className="flex flex-col gap-3">
+      <h2 className="text-base font-semibold">{t("family.babies")}</h2>
+      {babies.length === 0 ? <p className="text-sm text-muted">{t("settings.noBaby")}</p> : null}
+      {babies.map((baby) => {
+        const latest = baby.weights[0];
+        return (
+          <article key={baby.id} className="flex flex-col gap-3 rounded-3xl border border-line bg-card px-5 py-4">
+            <div className="flex items-center gap-3">
+              <BabyAvatar name={baby.name} path={baby.photoPath} />
+              <div className="min-w-0">
+                <h3 className="flex items-center gap-2 text-base font-semibold">
+                  <CareIcon name="baby" className="h-5 w-5 text-accent" />
+                  {baby.name}
+                </h3>
+                <p className="text-sm text-muted">{t("family.babyProfile")}</p>
+              </div>
+            </div>
+            <label className="text-sm font-semibold text-accent">
+              {t("family.changePhoto")}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file || !familyId) return;
+                  void saveBabyPhoto(familyId, baby.id, file).then((path) => {
+                    if (!path) return;
+                    setBabies((current) =>
+                      current.map((entry) => (entry.id === baby.id ? { ...entry, photoPath: path } : entry)),
+                    );
+                  });
+                }}
+              />
+            </label>
+            <p className="text-base font-semibold">
+              {t("weight.latest")}
+              {" · "}
+              {latest ? t("weight.kgValue", { kg: formatKg(latest.grams) }) : t("weight.empty")}
+            </p>
+            {baby.weights.length > 0 ? (
+              <>
+                <h4 className="text-sm font-semibold">{t("weight.history")}</h4>
+                <ul className="flex flex-col gap-2">
+                  {baby.weights.map((row) => (
+                    <li key={row.id} className="flex items-baseline justify-between gap-3 text-sm">
+                      <span>{formatDate(row.on, locale)}</span>
+                      <span className="font-semibold">{t("weight.kgValue", { kg: formatKg(row.grams) })}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            <button
+              type="button"
+              className="self-start text-sm font-semibold text-accent"
+              onClick={() => {
+                if (familyId) rememberBaby(familyId, baby.id);
+                router.push("/?log=weight");
+              }}
+            >
+              {t("family.logWeight")}
+            </button>
+          </article>
+        );
+      })}
     </section>
   );
 }

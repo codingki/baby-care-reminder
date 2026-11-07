@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { CareIcon } from "@/components/care-icon";
 import { Screen } from "@/components/screen";
+import { Card } from "@/components/ui/card";
+import { ChartContainer } from "@/components/ui/chart";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Bar, BarChart, Line, LineChart, XAxis } from "recharts";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
 import { formatSpan } from "@/lib/relative-time";
@@ -113,31 +118,30 @@ export default function InsightsPage() {
       showLater={false}
       icon={<CareIcon name="insights" className="h-8 w-8" />}
     >
-      <div className="grid grid-cols-2 gap-2" role="group" aria-label={t("insights.title")}>
-        {([7, 30] as const).map((option) => {
-          const pressed = range === option;
-          return (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={pressed}
-              onClick={() => {
-                setState("loading");
-                setRange(option);
-              }}
-              className={`min-h-12 rounded-2xl text-sm font-semibold ${
-                pressed ? "bg-accent text-accent-foreground" : "border border-line bg-card"
-              }`}
-            >
-              {t(option === 7 ? "insights.days7" : "insights.days30")}
-            </button>
-          );
-        })}
-      </div>
+      <ToggleGroup
+        type="single"
+        value={String(range)}
+        spacing={2}
+        className="grid w-full grid-cols-2 gap-2"
+        aria-label={t("insights.title")}
+        onValueChange={(next) => {
+          if (next !== "7" && next !== "30") return;
+          setState("loading");
+          setRange(next === "7" ? 7 : 30);
+        }}
+      >
+        <ToggleGroupItem value="7" size="lg" className="w-full">
+          {t("insights.days7")}
+        </ToggleGroupItem>
+        <ToggleGroupItem value="30" size="lg" className="w-full">
+          {t("insights.days30")}
+        </ToggleGroupItem>
+      </ToggleGroup>
       {state === "loading" ? (
-        <p className="text-sm text-muted" role="status">
-          {t("insights.loading")}
-        </p>
+        <div className="flex flex-col gap-3" role="status" aria-label={t("insights.loading")}>
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
       ) : null}
       {state === "error" ? (
         <p className="text-sm text-muted" role="alert">
@@ -166,7 +170,6 @@ export default function InsightsPage() {
               colors={[SAGE_SOFT, SAGE]}
               empty={t("insights.empty")}
               legend={[t("diaper.wet"), t("diaper.dirty")]}
-              showTotal={false}
             />
           </ChartCard>
           <ChartCard title={t("insights.pumpMl")}>
@@ -192,10 +195,10 @@ function Summary({ label, value }: { label: string; value: string }) {
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-2 rounded-3xl border border-line bg-card px-4 py-4">
+    <Card className="gap-2 px-4 py-4">
       <h2 className="text-sm font-semibold">{title}</h2>
       {children}
-    </section>
+    </Card>
   );
 }
 
@@ -205,51 +208,39 @@ function Bars({
   colors,
   empty,
   legend,
-  showTotal = true,
 }: {
   days: Day[];
   pick: (day: Day) => number[];
   colors: string[];
   empty: string;
   legend?: string[];
-  showTotal?: boolean;
 }) {
   const series = days.map((day) => pick(day));
-  const max = Math.max(1, ...series.map((values) => values.reduce((sum, value) => sum + value, 0)));
   const blank = series.every((values) => values.every((value) => value === 0));
   if (blank) return <p className="text-sm text-muted">{empty}</p>;
-  const width = 320;
-  const height = 120;
-  const slot = width / days.length;
+  const data = days.map((day, index) => {
+    const values = pick(day);
+    const row: Record<string, string | number> = {
+      label: showLabel(index, days.length) ? day.label : "",
+    };
+    values.forEach((value, seriesIndex) => {
+      row[`s${seriesIndex}`] = value;
+    });
+    return row;
+  });
+  const config = Object.fromEntries(
+    colors.map((color, index) => [`s${index}`, { label: legend?.[index] ?? "", color }]),
+  );
   return (
     <div className="flex flex-col gap-2">
-      <svg viewBox={`0 0 ${width} ${height + 16}`} className="w-full" role="img">
-        {series.map((values, index) => {
-          const total = values.reduce((sum, value) => sum + value, 0);
-          let y = height;
-          const x = index * slot + slot * 0.18;
-          const bar = slot * 0.64;
-          return (
-            <g key={days[index]?.key ?? index}>
-              {values.map((value, seriesIndex) => {
-                const h = (value / max) * (height - 8);
-                y -= h;
-                return <rect key={seriesIndex} x={x} y={y} width={bar} height={h} rx={2} fill={colors[seriesIndex]} />;
-              })}
-              {showLabel(index, days.length) ? (
-                <text x={index * slot + slot / 2} y={height + 12} textAnchor="middle" fontSize="8" fill="#8b938e">
-                  {days[index]?.label}
-                </text>
-              ) : null}
-              {showTotal && total > 0 && days.length <= 7 ? (
-                <text x={index * slot + slot / 2} y={y - 2} textAnchor="middle" fontSize="8" fill="#3d4441">
-                  {Math.round(total)}
-                </text>
-              ) : null}
-            </g>
-          );
-        })}
-      </svg>
+      <ChartContainer config={config} className="aspect-auto h-36 w-full">
+        <BarChart data={data}>
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#8b938e", fontSize: 10 }} />
+          {colors.map((color, index) => (
+            <Bar key={color} dataKey={`s${index}`} stackId="stack" fill={color} radius={2} />
+          ))}
+        </BarChart>
+      </ChartContainer>
       {legend ? (
         <ul className="flex flex-wrap gap-3 text-xs text-muted">
           {legend.map((label, index) => (
@@ -266,25 +257,17 @@ function Bars({
 
 function WeightLine({ points, empty }: { points: WeightPoint[]; empty: string }) {
   if (points.length === 0) return <p className="text-sm text-muted">{empty}</p>;
-  const width = 320;
-  const height = 120;
-  const values = points.map((point) => point.grams / 1000);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const coords = values.map((value, index) => {
-    const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * (width - 16) + 8;
-    const y = height - 16 - ((value - min) / span) * (height - 28);
-    return { x, y, value };
-  });
-  const path = coords.map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`).join(" ");
+  const data = points.map((point) => ({
+    label: point.at.slice(5),
+    kg: Math.round((point.grams / 1000) * 100) / 100,
+  }));
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img">
-      <path d={path} fill="none" stroke={SAGE} strokeWidth="2" />
-      {coords.map((point) => (
-        <circle key={`${point.x}-${point.y}`} cx={point.x} cy={point.y} r="3.5" fill={SAGE} />
-      ))}
-    </svg>
+    <ChartContainer config={{ kg: { label: "kg", color: SAGE } }} className="aspect-auto h-36 w-full">
+      <LineChart data={data}>
+        <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#8b938e", fontSize: 10 }} />
+        <Line type="monotone" dataKey="kg" stroke={SAGE} strokeWidth={2} dot={{ r: 3.5, fill: SAGE }} />
+      </LineChart>
+    </ChartContainer>
   );
 }
 

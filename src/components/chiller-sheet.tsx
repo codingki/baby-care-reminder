@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
 import { PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
-import { useSheetPresence } from "@/components/sheet-presence";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/provider";
 import { loadFamilyContext } from "@/lib/family-context";
 import { saveChillerItem } from "@/lib/save-log";
@@ -23,18 +23,17 @@ type Step = "choose" | "milk" | "parts";
 export function ChillerSheet({
   open,
   pumps,
+  babies,
   onClose,
   onSaved,
 }: {
   open: boolean;
   pumps: SheetPump[];
+  babies: { id: string; name: string }[];
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
-  useSheetPresence(open);
-  const titleId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
   const lock = useRef(false);
   const [step, setStep] = useState<Step>("choose");
   const [pending, setPending] = useState(false);
@@ -42,6 +41,7 @@ export function ChillerSheet({
   const [milkNote, setMilkNote] = useState("");
   const [location, setLocation] = useState<(typeof LOCATIONS)[number]>("fridge");
   const [pumpId, setPumpId] = useState<string>("");
+  const [milkBabyId, setMilkBabyId] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [unit, setUnit] = useState("ml");
 
@@ -50,47 +50,11 @@ export function ChillerSheet({
   const milkAmount = Number(milkMl);
   const milkReady = Number.isFinite(milkAmount) && milkAmount > 0;
 
-  function reset() {
-    setStep("choose");
-    setPending(false);
-    setMilkMl("");
-    setMilkNote("");
-    setLocation("fridge");
-    setPumpId("");
-    setStatus(null);
-  }
-
-  function close() {
-    reset();
-    onClose();
-  }
-
   useEffect(() => {
-    if (!open) return;
     void loadFamilyContext().then((context) => {
       if (context?.unit) setUnit(context.unit);
     });
-    const panel = panelRef.current;
-    panel?.querySelector<HTMLElement>("button, input, select, textarea")?.focus();
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setStep("choose");
-      setPending(false);
-      setMilkMl("");
-      setMilkNote("");
-      setLocation("fridge");
-      setPumpId("");
-      setStatus(null);
-      onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
-    };
-  }, [open, onClose, step]);
+  }, []);
 
   async function storeMilk() {
     if (lock.current || !milkReady) return;
@@ -106,16 +70,14 @@ export function ChillerSheet({
         pumpId: null,
         washByHours: context?.washByHours ?? 24,
         note: milkNote,
+        babyId: milkBabyId || null,
       });
       if (saved.status === "error") {
         setStatus(t("common.failed"));
         return;
       }
-      setMilkMl("");
-      setMilkNote("");
-      setStatus(saved.status === "queued" ? t("common.queued") : t("common.saved"));
-      setStep("choose");
-      onSaved();
+      await onSaved();
+      onClose();
     } finally {
       lock.current = false;
       setPending(false);
@@ -140,9 +102,8 @@ export function ChillerSheet({
         setStatus(t("common.failed"));
         return;
       }
-      setStatus(saved.status === "queued" ? t("common.queued") : t("common.saved"));
-      setStep("choose");
-      onSaved();
+      await onSaved();
+      onClose();
     } finally {
       lock.current = false;
       setPending(false);
@@ -151,36 +112,9 @@ export function ChillerSheet({
 
   if (!open) return null;
 
-  const frame = document.getElementById("app-frame");
-  const saveClass =
-    "min-h-12 rounded-2xl bg-accent px-4 text-base font-semibold text-accent-foreground disabled:opacity-50";
-  const panel = (
-    <div
-      className="absolute inset-0 z-40 flex bg-background sm:items-end sm:justify-center sm:bg-black/30"
-      onClick={close}
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(event) => event.stopPropagation()}
-        className="flex h-full w-full max-w-none flex-col rounded-none bg-background sm:h-auto sm:max-h-[85dvh] sm:max-w-md sm:rounded-t-3xl sm:shadow-[0_0_0_1px_var(--line)]"
-      >
-        <div className="safe-x flex shrink-0 items-center justify-between gap-3 pt-[max(1rem,env(safe-area-inset-top))] pb-3 sm:pt-4">
-          <h2 id={titleId} className="text-lg font-semibold">
-            {t("chiller.title")}
-          </h2>
-          <button
-            type="button"
-            onClick={close}
-            aria-label={t("home.close")}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-muted"
-          >
-            <CareIcon name="close" className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="safe-x min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-4">
+  return (
+    <>
+        <div className="safe-x min-h-0 overflow-y-auto overscroll-contain pt-1 pb-4">
 
         {step === "choose" ? (
           <div className="flex flex-col gap-3">
@@ -206,7 +140,7 @@ export function ChillerSheet({
               <CareIcon name="pump" className="h-6 w-6 text-accent" />
               <span className="text-base font-semibold">{t("home.storeParts")}</span>
             </button>
-            <Link href="/chiller" onClick={close} className="text-sm font-semibold text-accent">
+            <Link href="/chiller" onClick={onClose} className="text-sm font-semibold text-accent">
               {t("home.chillerList")}
             </Link>
           </div>
@@ -234,15 +168,14 @@ export function ChillerSheet({
             </h3>
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-ml">
               {t("pump.milkAmount")}
-              <input
+              <Input
                 id="sheet-milk-ml"
                 type="number"
                 inputMode="decimal"
                 min={1}
                 value={milkMl}
                 onChange={(event) => setMilkMl(event.target.value)}
-              className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
-            />
+              />
           </label>
           <PresetChips values={volumePresets(unit)} onPick={(value) => setMilkMl(String(value))} />
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-where">
@@ -263,14 +196,30 @@ export function ChillerSheet({
                 ))}
               </select>
             </label>
+            <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-baby">
+              {t("chiller.baby")}
+              <span className="font-normal text-muted"> · {t("chiller.noteOptional")}</span>
+              <select
+                id="sheet-milk-baby"
+                value={milkBabyId}
+                onChange={(event) => setMilkBabyId(event.target.value)}
+                className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
+              >
+                <option value="">{t("chiller.babyNone")}</option>
+                {babies.map((baby) => (
+                  <option key={baby.id} value={baby.id}>
+                    {baby.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-note">
               {t("chiller.note")}
               <span className="font-normal text-muted"> · {t("chiller.noteOptional")}</span>
-              <input
+              <Input
                 id="sheet-milk-note"
                 value={milkNote}
                 onChange={(event) => setMilkNote(event.target.value)}
-                className="min-h-12 rounded-2xl border border-line bg-card px-3 text-base font-normal"
               />
             </label>
           </form>
@@ -299,7 +248,7 @@ export function ChillerSheet({
             {pumps.length === 0 ? (
               <p className="text-sm leading-6">
                 {t("pump.noPumps")}{" "}
-                <Link href="/settings" className="font-semibold text-accent" onClick={close}>
+                <Link href="/settings" className="font-semibold text-accent" onClick={onClose}>
                   {t("pump.addPumps")}
                 </Link>
               </p>
@@ -331,39 +280,23 @@ export function ChillerSheet({
         ) : null}
         </div>
         {step === "milk" || step === "parts" ? (
-          <div className="safe-x flex shrink-0 flex-col gap-2 border-t border-line bg-background pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-b-none sm:border-0">
+          <div className="safe-x shrink-0 border-t border-line bg-background pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {status ? (
-              <p role="status" className="text-sm">
+              <p role="status" className="pb-2 text-sm">
                 {status}
               </p>
             ) : null}
             {step === "milk" ? (
-              <button
-                type="submit"
-                form="chiller-milk"
-                disabled={pending || !milkReady}
-                aria-busy={pending}
-                className={saveClass}
-              >
+              <Button type="submit" form="chiller-milk" disabled={pending || !milkReady} aria-busy={pending}>
                 {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-              </button>
+              </Button>
             ) : (
-              <button
-                type="submit"
-                form="chiller-parts"
-                disabled={pending || !selectedPump}
-                aria-busy={pending}
-                className={saveClass}
-              >
+              <Button type="submit" form="chiller-parts" disabled={pending || !selectedPump} aria-busy={pending}>
                 {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
-              </button>
+              </Button>
             )}
           </div>
         ) : null}
-      </div>
-    </div>
+    </>
   );
-
-  if (!frame) return panel;
-  return createPortal(panel, frame);
 }

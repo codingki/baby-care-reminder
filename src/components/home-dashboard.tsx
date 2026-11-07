@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { BabySwitcher, type SwitchBaby } from "@/components/baby-switcher";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
-import { ChillerSheet, type SheetPump } from "@/components/chiller-sheet";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { type SheetPump } from "@/components/chiller-sheet";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
@@ -14,15 +18,18 @@ import { diaperIntervalMinutes, feedIntervalMinutes, DEFAULT_CARE_INTERVAL_MINUT
 import { loadRemotePumps } from "@/lib/family-pumps";
 import { readQueue } from "@/lib/offline-queue";
 import { formatSpan, nowMs } from "@/lib/relative-time";
+import { QuickLogDialog, type QuickLogKind } from "@/components/quick-log-dialog";
+import { chooseBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
 
-type Baby = {
-  name: string;
-  birthDate: string;
+type Baby = SwitchBaby & {
   intervalMinutes: number | null;
+  diaperIntervalMinutes: number | null;
 };
 
 type HomeData = {
+  familyId: string | null;
+  babies: SwitchBaby[];
   baby: Baby | null;
   diaperAt: string | null;
   feedAt: string | null;
@@ -32,8 +39,24 @@ type HomeData = {
   pumps: OwnedPump[];
 };
 
+function logKind(value: string | null): QuickLogKind | null {
+  if (
+    value === "diaper" ||
+    value === "feed" ||
+    value === "dbf" ||
+    value === "pump" ||
+    value === "chiller" ||
+    value === "weight"
+  ) {
+    return value;
+  }
+  return null;
+}
+
 function blankHome(pumps: OwnedPump[]): HomeData {
   return {
+    familyId: null,
+    babies: [],
     baby: null,
     diaperAt: null,
     feedAt: null,
@@ -47,6 +70,7 @@ function blankHome(pumps: OwnedPump[]): HomeData {
 type ChillerRow = {
   id: string;
   type: "milk" | "pump_parts";
+  babyId: string | null;
   location: ChillerLocation;
   storedAt: string;
   expiresAt: string;
@@ -131,6 +155,7 @@ function asChiller(id: string, row: Record<string, unknown>): ChillerRow | null 
   return {
     id,
     type: row.type,
+    babyId: typeof row.baby_id === "string" ? row.baby_id : null,
     location: row.location,
     storedAt: row.stored_at,
     expiresAt: row.expires_at,
@@ -144,14 +169,22 @@ export function HomeDashboard() {
   const { locale, t } = useI18n();
   const device = useCareStore();
   const [now, setNow] = useState<number | null>(null);
+  const params = useSearchParams();
+  const requestedLog = logKind(params.get("log"));
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [babies, setBabies] = useState<SwitchBaby[]>([]);
   const [baby, setBaby] = useState<Baby | null>(null);
+  const [log, setLog] = useState<QuickLogKind | null>(requestedLog);
   const [diaperAt, setDiaperAt] = useState<string | null>(null);
   const [feedAt, setFeedAt] = useState<string | null>(null);
   const [pumpAt, setPumpAt] = useState<string | null>(null);
   const [chiller, setChiller] = useState<ChillerRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [pumps, setPumps] = useState<OwnedPump[]>([]);
-  const [sheet, setSheet] = useState(false);
+  useEffect(() => {
+    if (!params.get("log")) return;
+    window.history.replaceState(null, "", "/");
+  }, [params]);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [version, setVersion] = useState(0);
 
@@ -177,11 +210,34 @@ export function HomeDashboard() {
     const familyId = membership?.family_id;
     if (!familyId) return blankHome(remotePumps ?? []);
 
-    const [diaperLast, feedLast, pumpLast, recent, chillerRows, reminders, babies] = await Promise.all([
+    const { data: babyRows } = await supabase
+      .from("babies")
+      .select("id, name, birth_date, photo_path, suggested_interval_minutes, diaper_interval_minutes")
+      .eq("family_id", familyId)
+      .order("created_at");
+    const roster: Baby[] = (babyRows ?? []).flatMap((row) => {
+      if (typeof row.id !== "string" || typeof row.name !== "string" || typeof row.birth_date !== "string") return [];
+      return [
+        {
+          id: row.id,
+          name: row.name,
+          birthDate: row.birth_date,
+          photoPath: typeof row.photo_path === "string" ? row.photo_path : null,
+          intervalMinutes: typeof row.suggested_interval_minutes === "number" ? row.suggested_interval_minutes : null,
+          diaperIntervalMinutes: typeof row.diaper_interval_minutes === "number" ? row.diaper_interval_minutes : null,
+        },
+      ];
+    });
+    const selectedId = chooseBaby(familyId, roster.map((baby) => baby.id));
+    const babyRow = roster.find((baby) => baby.id === selectedId) ?? null;
+    const viewBaby = selectedId ?? "00000000-0000-0000-0000-000000000000";
+
+    const [diaperLast, feedLast, pumpLast, recent, chillerRows, reminders] = await Promise.all([
       supabase
         .from("logs")
         .select("occurred_at")
         .eq("family_id", familyId)
+        .eq("baby_id", viewBaby)
         .eq("kind", "diaper")
         .order("occurred_at", { ascending: false })
         .limit(1)
@@ -190,6 +246,7 @@ export function HomeDashboard() {
         .from("logs")
         .select("occurred_at")
         .eq("family_id", familyId)
+        .eq("baby_id", viewBaby)
         .eq("kind", "feed")
         .order("occurred_at", { ascending: false })
         .limit(1)
@@ -198,6 +255,7 @@ export function HomeDashboard() {
         .from("logs")
         .select("occurred_at")
         .eq("family_id", familyId)
+        .eq("baby_id", viewBaby)
         .eq("kind", "pump")
         .order("occurred_at", { ascending: false })
         .limit(1)
@@ -206,35 +264,26 @@ export function HomeDashboard() {
         .from("logs")
         .select("id, kind, occurred_at, amount_ml, diaper_kind, duration_seconds, feed_kind, breast_side, poop_color, poop_amount")
         .eq("family_id", familyId)
+        .eq("baby_id", viewBaby)
         .order("occurred_at", { ascending: false })
         .limit(8),
       supabase
         .from("chiller_items")
-        .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note")
+        .select("id, type, baby_id, location, stored_at, expires_at, volume_ml, pump_id, note")
         .eq("family_id", familyId)
         .is("cleared_at", null)
         .order("expires_at")
         .limit(40),
       supabase
         .from("reminders")
-        .select("reminder_type, next_due_at, chiller_item_id")
+        .select("reminder_type, next_due_at, chiller_item_id, baby_id")
         .eq("family_id", familyId)
+        .eq("baby_id", viewBaby)
         .eq("enabled", true),
-      supabase
-        .from("babies")
-        .select("name, birth_date, suggested_interval_minutes, diaper_interval_minutes")
-        .eq("family_id", familyId)
-        .order("created_at")
-        .limit(1),
     ]);
 
-    const babyRow = babies.data?.[0];
-    const interval = feedIntervalMinutes(
-      typeof babyRow?.suggested_interval_minutes === "number" ? babyRow.suggested_interval_minutes : null,
-    );
-    const diaperInterval = diaperIntervalMinutes(
-      typeof babyRow?.diaper_interval_minutes === "number" ? babyRow.diaper_interval_minutes : null,
-    );
+    const interval = feedIntervalMinutes(babyRow?.intervalMinutes ?? null);
+    const diaperInterval = diaperIntervalMinutes(babyRow?.diaperIntervalMinutes ?? null);
     const reminderFor = (type: string) =>
       (reminders.data ?? []).find(
         (row) => row.reminder_type === type && row.chiller_item_id == null && typeof row.next_due_at === "string",
@@ -245,15 +294,9 @@ export function HomeDashboard() {
     const lastPump = typeof pumpLast.data?.occurred_at === "string" ? pumpLast.data.occurred_at : null;
 
     return {
-      baby:
-        babyRow && typeof babyRow.name === "string" && typeof babyRow.birth_date === "string"
-          ? {
-              name: babyRow.name,
-              birthDate: babyRow.birth_date,
-              intervalMinutes:
-                typeof babyRow.suggested_interval_minutes === "number" ? babyRow.suggested_interval_minutes : null,
-            }
-          : null,
+      familyId,
+      babies: roster,
+      baby: babyRow,
       diaperAt: lastDiaper ? plus(lastDiaper, diaperInterval * 60 * 1000) : reminderFor("diaper"),
       feedAt: lastFeed ? plus(lastFeed, interval * 60 * 1000) : reminderFor("feed"),
       pumpAt: reminderFor("pump") ?? (lastPump ? plus(lastPump, CARE_MS) : null),
@@ -275,6 +318,8 @@ export function HomeDashboard() {
       try {
         const data = await load();
         if (ignore) return;
+        setFamilyId(data.familyId);
+        setBabies(data.babies);
         setBaby(data.baby);
         setDiaperAt(data.diaperAt);
         setFeedAt(data.feedAt);
@@ -300,6 +345,7 @@ export function HomeDashboard() {
   const deviceChiller: ChillerRow[] = device.items.filter((item) => !item.clearedAt).map((item) => ({
     id: item.id,
     type: item.type,
+    babyId: null,
     location: item.location,
     storedAt: item.storedAt,
     expiresAt: item.expiresAt,
@@ -324,50 +370,54 @@ export function HomeDashboard() {
   const activities = buildActivity(logs, queuedLogs, chillerItems, mergedPumps, t);
 
   const age = baby ? ageLabel(baby.birthDate, locale, t) : null;
-  const initial = baby ? baby.name.trim().charAt(0).toUpperCase() || "?" : "";
 
   const cards: {
-    key: string;
-    href: string;
+    key: QuickLogKind;
     icon: CareIconName;
     label: string;
     at: string | null;
   }[] = [
-    { key: "diaper", href: "/log/diaper", icon: "diaper", label: t("home.diaper"), at: diaperAt },
-    { key: "feed", href: "/log/feed", icon: "feed", label: t("home.feed"), at: feedAt },
-    { key: "pump", href: "/log/pump", icon: "pump", label: t("home.pump"), at: pumpAt },
+    { key: "diaper", icon: "diaper", label: t("home.diaper"), at: diaperAt },
+    { key: "feed", icon: "feed", label: t("home.feed"), at: feedAt },
+    { key: "pump", icon: "pump", label: t("home.pump"), at: pumpAt },
   ];
 
-  const closeSheet = useCallback(() => setSheet(false), []);
+  const closeLog = useCallback(() => setLog(null), []);
+  const refreshHome = useCallback(async () => {
+    const data = await load();
+    setFamilyId(data.familyId);
+    setBabies(data.babies);
+    setBaby(data.baby);
+    setDiaperAt(data.diaperAt);
+    setFeedAt(data.feedAt);
+    setPumpAt(data.pumpAt);
+    setLogs(data.logs);
+    setChiller(data.chiller);
+    setPumps(data.pumps);
+  }, [load]);
   const sheetPumps: SheetPump[] = mergedPumps.map((pump) => ({ id: pump.id, label: pumpLabel(pump) }));
-  const quick: { key: string; href?: string; icon: CareIconName; label: string }[] = [
-    { key: "diaper", href: "/log/diaper", icon: "diaper", label: t("home.diaper") },
-    { key: "feed", href: "/log/feed", icon: "feed", label: t("home.feed") },
-    { key: "dbf", href: "/log/dbf", icon: "dbf", label: t("home.dbf") },
-    { key: "pump", href: "/log/pump", icon: "pump", label: t("home.pump") },
-    { key: "weight", href: "/log/weight", icon: "weight", label: t("home.weight") },
+  const quick: { key: QuickLogKind; icon: CareIconName; label: string }[] = [
+    { key: "diaper", icon: "diaper", label: t("home.diaper") },
+    { key: "feed", icon: "feed", label: t("home.feed") },
+    { key: "dbf", icon: "dbf", label: t("home.dbf") },
+    { key: "pump", icon: "pump", label: t("home.pump") },
+    { key: "weight", icon: "weight", label: t("home.weight") },
   ];
 
   return (
     <section className="flex flex-col gap-6">
       <header className="flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e7eee9] text-lg font-semibold text-accent">
-          {initial}
-        </span>
-        <div className="min-w-0 flex-1">
-          {status === "loading" ? (
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{t("common.loading")}</h1>
-          ) : baby ? (
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{baby.name}</h1>
-          ) : (
-            <h1 className="truncate text-2xl font-semibold tracking-tight">
-              <Link href="/onboarding">{t("home.addBaby")}</Link>
-            </h1>
-          )}
-          {status === "ready" ? (
-            <p className="text-sm text-muted">{age || t("home.addBabyDetail")}</p>
-          ) : null}
-        </div>
+        {status === "loading" ? (
+          <Skeleton className="h-12 w-full" />
+        ) : (
+          <BabySwitcher
+            familyId={familyId}
+            babies={babies}
+            selectedId={baby?.id ?? null}
+            age={status === "ready" ? age : null}
+            onChanged={() => setVersion((current) => current + 1)}
+          />
+        )}
         <Link
           href="/settings"
           aria-label={t("shell.navSettings")}
@@ -384,8 +434,9 @@ export function HomeDashboard() {
             const line = countdownLine(card.at, now, t);
             return (
               <li key={card.key}>
-                <Link
-                  href={card.href}
+                <button
+                  type="button"
+                  onClick={() => setLog(card.key)}
                   aria-label={`${card.label}, ${line.text}`}
                   className={`${SOFT} flex min-h-[7.25rem] flex-col items-center justify-center gap-1.5 px-1 py-3 text-center ${
                     line.overdue ? "border border-danger" : ""
@@ -403,14 +454,14 @@ export function HomeDashboard() {
                     {line.text}
                   </span>
                   {line.overdue ? (
-                    <span className="rounded-full border border-danger px-1.5 text-[10px] font-semibold text-danger">
+                    <Badge variant="danger" className="h-auto px-1.5 py-0 text-[10px]">
                       {t("home.overdueBadge")}
-                    </span>
+                    </Badge>
                   ) : null}
                   <span className={`text-xs font-medium ${line.overdue ? "text-danger" : "text-accent"}`}>
                     {card.label}
                   </span>
-                </Link>
+                </button>
               </li>
             );
           })}
@@ -429,11 +480,10 @@ export function HomeDashboard() {
             {stored.map((item) => {
               const expired = now !== null && new Date(item.expiresAt).getTime() < now;
               const pump = mergedPumps.find((entry) => entry.id === item.pumpId);
+              const milkBaby = item.type === "milk" && item.babyId ? babies.find((entry) => entry.id === item.babyId)?.name : null;
               const label =
                 item.type === "milk"
-                  ? item.volumeMl
-                    ? `${item.volumeMl} ml`
-                    : t("chiller.milk")
+                  ? `${item.volumeMl ? `${item.volumeMl} ml` : t("chiller.milk")}${milkBaby ? ` · ${milkBaby}` : ""}`
                   : pump
                     ? pumpLabel(pump)
                     : t("chiller.parts");
@@ -454,11 +504,13 @@ export function HomeDashboard() {
                       className={`h-6 w-6 shrink-0 ${expired ? "text-danger" : "text-accent"}`}
                     />
                     <p className={`min-w-0 flex-1 text-sm font-semibold ${expired ? "text-danger" : ""}`}>{label}</p>
-                    <span
-                      className={`shrink-0 text-right text-sm ${expired ? "font-semibold text-danger" : "text-muted"}`}
-                    >
-                      {left}
-                    </span>
+                    {expired ? (
+                      <Badge variant="danger" className="h-auto shrink-0 px-1.5 py-0 text-sm">
+                        {left}
+                      </Badge>
+                    ) : (
+                      <span className="shrink-0 text-right text-sm text-muted">{left}</span>
+                    )}
                   </Link>
                 </li>
               );
@@ -472,16 +524,20 @@ export function HomeDashboard() {
         <ul className="grid grid-cols-2 gap-2">
           {quick.slice(0, 4).map((item) => (
             <li key={item.key}>
-              <Link href={item.href ?? "/"} className={`${SOFT} flex min-h-[4.75rem] items-center gap-3 px-4`}>
+              <button
+                type="button"
+                onClick={() => setLog(item.key)}
+                className={`${SOFT} flex min-h-[4.75rem] w-full items-center gap-3 px-4 text-left`}
+              >
                 <CareIcon name={item.icon} className="h-6 w-6 shrink-0 text-accent" />
                 <span className="text-base font-semibold">{item.label}</span>
-              </Link>
+              </button>
             </li>
           ))}
           <li>
             <button
               type="button"
-              onClick={() => setSheet(true)}
+              onClick={() => setLog("chiller")}
               className={`${SOFT} flex min-h-[4.75rem] w-full items-center gap-3 px-4 text-left`}
             >
               <CareIcon name="chiller" className="h-6 w-6 shrink-0 text-accent" />
@@ -490,10 +546,14 @@ export function HomeDashboard() {
           </li>
           {quick.slice(4).map((item) => (
             <li key={item.key}>
-              <Link href={item.href ?? "/"} className={`${SOFT} flex min-h-[4.75rem] items-center gap-3 px-4`}>
+              <button
+                type="button"
+                onClick={() => setLog(item.key)}
+                className={`${SOFT} flex min-h-[4.75rem] w-full items-center gap-3 px-4 text-left`}
+              >
                 <CareIcon name={item.icon} className="h-6 w-6 shrink-0 text-accent" />
                 <span className="text-base font-semibold">{item.label}</span>
-              </Link>
+              </button>
             </li>
           ))}
         </ul>
@@ -526,11 +586,13 @@ export function HomeDashboard() {
         )}
       </section>
 
-      <ChillerSheet
-        open={sheet}
+      <QuickLogDialog
+        kind={log}
         pumps={sheetPumps}
-        onClose={closeSheet}
-        onSaved={() => setVersion((current) => current + 1)}
+        babies={babies.map((entry) => ({ id: entry.id, name: entry.name }))}
+        babyName={baby?.name ?? null}
+        onClose={closeLog}
+        onSaved={refreshHome}
       />
     </section>
   );

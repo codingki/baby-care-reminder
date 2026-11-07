@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { SavingLabel } from "@/components/saving-label";
 import { useI18n } from "@/i18n/provider";
 import { markChillerCleared, markChillerRestored } from "@/lib/device-care";
@@ -75,38 +75,32 @@ export function ChillerUndoToast({
   onDone: () => void;
 }) {
   const { t } = useI18n();
-  const [pending, setPending] = useState(false);
-  if (!items || items.length === 0) return null;
+  const done = useRef(onDone);
 
-  async function undo() {
-    if (pending || !items) return;
-    setPending(true);
-    const ok = await restoreChillerItems(items);
-    setPending(false);
-    if (ok) onDone();
-  }
+  useEffect(() => {
+    done.current = onDone;
+  }, [onDone]);
 
-  const toast = (
-    <div className="pointer-events-none absolute inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex justify-center safe-x">
-      <div
-        role="status"
-        className="pointer-events-auto flex min-h-12 items-center gap-4 rounded-full bg-[#3d4441] px-4 text-sm text-white"
-      >
-        <span>{t("chiller.cleared")}</span>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => void undo()}
-          className="font-semibold text-white disabled:opacity-50"
-        >
-          {pending ? <SavingLabel label={t("common.saving")} /> : t("chiller.undo")}
-        </button>
-      </div>
-    </div>
-  );
-  const frame = document.getElementById("app-frame");
-  if (!frame) return toast;
-  return createPortal(toast, frame);
+  useEffect(() => {
+    if (!items || items.length === 0) return;
+    const snapshot = items;
+    const id = toast(t("chiller.cleared"), {
+      duration: 5000,
+      action: {
+        label: t("chiller.undo"),
+        onClick: () => {
+          void restoreChillerItems(snapshot).then((ok) => {
+            if (ok) done.current();
+          });
+        },
+      },
+    });
+    return () => {
+      toast.dismiss(id);
+    };
+  }, [items, t]);
+
+  return null;
 }
 
 export function ClearChiller({

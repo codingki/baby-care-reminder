@@ -1,5 +1,7 @@
 "use client";
 
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
 export function PresetChips({
   values,
   onPick,
@@ -8,18 +10,20 @@ export function PresetChips({
   onPick: (value: number) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <ToggleGroup
+      type="single"
+      spacing={2}
+      className="flex w-auto flex-wrap justify-start gap-2"
+      onValueChange={(next) => {
+        if (next) onPick(Number(next));
+      }}
+    >
       {values.map((value) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => onPick(value)}
-          className="min-h-9 rounded-full border border-line bg-card px-3 text-sm font-semibold"
-        >
+        <ToggleGroupItem key={value} value={String(value)} onClick={() => onPick(value)}>
           {value}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }
 

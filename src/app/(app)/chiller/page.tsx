@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
+import { Badge } from "@/components/ui/badge";
 import { ChillerUndoToast, ClearChiller, useChillerUndo, type UndoItem } from "@/components/clear-chiller";
 import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
@@ -46,6 +47,8 @@ export default function ChillerPage() {
   const deviceItems: LiveChillerItem[] = device.items.map((item) => ({
     ...item,
     pumpName: deviceName(item, device.pumps),
+    babyId: null,
+    babyName: null,
     clearedAt: item.clearedAt ?? null,
     clearedReason: item.clearedReason ?? null,
   }));
@@ -202,11 +205,18 @@ export default function ChillerPage() {
                     <p className={`text-base font-semibold ${expired && filter === "active" ? "text-danger" : ""}`}>
                       {title}
                     </p>
-                    <p className="mt-1 text-sm text-muted">{t(`chiller.${item.location}`)}</p>
-                    {item.type === "milk" && item.note ? <p className="mt-1 text-sm">{item.note}</p> : null}
-                    <p className={`mt-1 text-sm ${expired && filter === "active" ? "font-semibold text-danger" : ""}`}>
-                      {filter === "active" && expired ? t("home.expiredBadge") : when}
+                    <p className="mt-1 text-sm text-muted">
+                      {t(`chiller.${item.location}`)}
+                      {item.type === "milk" && item.babyName ? ` · ${item.babyName}` : ""}
                     </p>
+                    {item.type === "milk" && item.note ? <p className="mt-1 text-sm">{item.note}</p> : null}
+                    {filter === "active" && expired ? (
+                      <Badge variant="danger" className="mt-1 h-auto px-1.5 py-0 text-sm">
+                        {t("home.expiredBadge")}
+                      </Badge>
+                    ) : (
+                      <p className="mt-1 text-sm">{when}</p>
+                    )}
                   </span>
                 </Link>
                 {filter === "active" ? (

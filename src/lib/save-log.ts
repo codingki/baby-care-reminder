@@ -80,6 +80,7 @@ export async function saveChillerItem(input: {
   pumpId: string | null;
   washByHours: number;
   note?: string | null;
+  babyId?: string | null;
 }): Promise<{ status: "synced" | "queued" | "error"; id: string }> {
   const id = crypto.randomUUID();
   const context = await loadFamilyContext();
@@ -100,11 +101,11 @@ export async function saveChillerItem(input: {
     note,
   };
   rememberChillerItem(item);
-  if (!context?.babyId) return { status: "queued", id };
+  if (!context) return { status: "queued", id };
 
   const row = {
     id,
-    baby_id: context.babyId,
+    baby_id: input.type === "milk" ? input.babyId || null : null,
     family_id: context.familyId,
     type: item.type,
     location: item.location,

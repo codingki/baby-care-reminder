@@ -7,6 +7,8 @@ export type ClearReason = "used" | "discarded" | "washed";
 
 export type LiveChillerItem = ChillerItem & {
   pumpName: string | null;
+  babyId: string | null;
+  babyName: string | null;
   clearedAt: string | null;
   clearedReason: ClearReason | null;
 };
@@ -23,10 +25,10 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
   const context = await loadFamilyContext();
   if (!context) return null;
   const supabase = createClient();
-  const [{ data: items, error }, { data: pumps }, { data: models }] = await Promise.all([
+  const [{ data: items, error }, { data: pumps }, { data: models }, { data: babies }] = await Promise.all([
     supabase
       .from("chiller_items")
-      .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note, cleared_at, cleared_reason")
+      .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note, cleared_at, cleared_reason, baby_id")
       .eq("family_id", context.familyId)
       .order("expires_at"),
     supabase
@@ -34,6 +36,7 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
       .select("id, nickname, custom_name, pump_model_id")
       .eq("family_id", context.familyId),
     supabase.from("pump_models").select("id, model"),
+    supabase.from("babies").select("id, name").eq("family_id", context.familyId),
   ]);
   if (error || !items) return null;
   const pumpRows = pumps ?? [];
@@ -57,6 +60,11 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
         clearedAt: typeof item.cleared_at === "string" ? item.cleared_at : null,
         clearedReason: isClearReason(item.cleared_reason) ? item.cleared_reason : null,
         pumpName,
+        babyId: typeof item.baby_id === "string" ? item.baby_id : null,
+        babyName:
+          typeof item.baby_id === "string"
+            ? ((babies ?? []).find((baby) => baby.id === item.baby_id)?.name ?? null)
+            : null,
       },
     ];
   });
