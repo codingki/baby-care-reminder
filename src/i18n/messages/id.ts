@@ -158,6 +158,7 @@ export const id = {
     dbfMinutes: "Menit DBF",
     feedCount: "Jumlah minum",
     diapers: "Popok per hari",
+    events: "Kejadian",
     pumpMl: "ml pompa per hari",
     weight: "Berat",
     empty: "Tidak ada data pada rentang ini.",

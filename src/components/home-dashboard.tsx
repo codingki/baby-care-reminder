@@ -404,6 +404,52 @@ export function HomeDashboard() {
         </ul>
       </section>
 
+      {stored.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold tracking-tight">{t("home.inChiller")}</h2>
+            <Link href="/chiller" className="text-sm font-semibold text-accent">
+              {t("home.seeAll")}
+            </Link>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {stored.map((item) => {
+              const expired = now !== null && new Date(item.expiresAt).getTime() < now;
+              const pump = mergedPumps.find((entry) => entry.id === item.pumpId);
+              const label =
+                item.type === "milk"
+                  ? item.volumeMl
+                    ? `${item.volumeMl} ml`
+                    : t("chiller.milk")
+                  : pump
+                    ? pumpLabel(pump)
+                    : t("chiller.parts");
+              const left =
+                now === null
+                  ? "…"
+                  : expired
+                    ? t("home.expired")
+                    : t("home.timeLeft", { time: formatSpan(new Date(item.expiresAt).getTime() - now) });
+              return (
+                <li key={item.id}>
+                  <Link href="/chiller" className={`${SOFT} flex items-center gap-3 px-4 py-3`}>
+                    <CareIcon
+                      name={item.type === "milk" ? "feed" : "chiller"}
+                      className="h-6 w-6 shrink-0 text-accent"
+                    />
+                    <p className="min-w-0 text-sm">
+                      <span className="font-semibold">{label}</span>
+                      <span className="text-muted"> · </span>
+                      <span className={expired ? "font-semibold text-accent" : "text-muted"}>{left}</span>
+                    </p>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold tracking-tight">{t("home.title")}</h2>
         <ul className="grid grid-cols-2 gap-2">
@@ -462,52 +508,6 @@ export function HomeDashboard() {
           </ul>
         )}
       </section>
-
-      {stored.length > 0 ? (
-        <section className="flex flex-col gap-3">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-base font-semibold tracking-tight">{t("home.inChiller")}</h2>
-            <Link href="/chiller" className="text-sm font-semibold text-accent">
-              {t("home.seeAll")}
-            </Link>
-          </div>
-          <ul className="flex flex-col gap-2">
-            {stored.map((item) => {
-              const expired = now !== null && new Date(item.expiresAt).getTime() < now;
-              const pump = mergedPumps.find((entry) => entry.id === item.pumpId);
-              const label =
-                item.type === "milk"
-                  ? item.volumeMl
-                    ? `${item.volumeMl} ml`
-                    : t("chiller.milk")
-                  : pump
-                    ? pumpLabel(pump)
-                    : t("chiller.parts");
-              const left =
-                now === null
-                  ? "…"
-                  : expired
-                    ? t("home.expired")
-                    : t("home.timeLeft", { time: formatSpan(new Date(item.expiresAt).getTime() - now) });
-              return (
-                <li key={item.id}>
-                  <Link href="/chiller" className={`${SOFT} flex items-center gap-3 px-4 py-3`}>
-                    <CareIcon
-                      name={item.type === "milk" ? "feed" : "chiller"}
-                      className="h-6 w-6 shrink-0 text-accent"
-                    />
-                    <p className="min-w-0 text-sm">
-                      <span className="font-semibold">{label}</span>
-                      <span className="text-muted"> · </span>
-                      <span className={expired ? "font-semibold text-accent" : "text-muted"}>{left}</span>
-                    </p>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
 
       <ChillerSheet
         open={sheet}

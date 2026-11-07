@@ -153,15 +153,13 @@ export default function InsightsPage() {
             <Summary label={t("insights.feedGap")} value={summary.gap || t("insights.gapEmpty")} />
           </section>
           <ChartCard title={t("insights.feeds")}>
-            <FeedChart
-              days={days}
-              empty={t("insights.empty")}
-              mlLabel={t("insights.bottleMl")}
-              minutesLabel={t("insights.dbfMinutes")}
-              countLabel={t("insights.feedCount")}
-            />
+            <p className="text-xs font-semibold text-muted">{t("insights.bottleMl")}</p>
+            <Bars days={days} pick={(day) => [day.bottleMl]} colors={[SAGE]} empty={t("insights.empty")} />
+            <p className="mt-2 text-xs font-semibold text-muted">{t("insights.dbfMinutes")}</p>
+            <Bars days={days} pick={(day) => [day.dbfMinutes]} colors={[SAGE_DEEP]} empty={t("insights.empty")} />
           </ChartCard>
           <ChartCard title={t("insights.diapers")}>
+            <p className="text-xs font-semibold text-muted">{t("insights.events")}</p>
             <Bars
               days={days}
               pick={(day) => [day.wet + day.both, day.dirty + day.both]}
@@ -198,79 +196,6 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
       <h2 className="text-sm font-semibold">{title}</h2>
       {children}
     </section>
-  );
-}
-
-function FeedChart({
-  days,
-  empty,
-  mlLabel,
-  minutesLabel,
-  countLabel,
-}: {
-  days: Day[];
-  empty: string;
-  mlLabel: string;
-  minutesLabel: string;
-  countLabel: string;
-}) {
-  const blank = days.every((day) => day.feeds === 0 && day.bottleMl === 0 && day.dbfMinutes === 0);
-  if (blank) return <p className="text-sm text-muted">{empty}</p>;
-  const width = 320;
-  const plotTop = 16;
-  const plotHeight = 96;
-  const height = plotTop + plotHeight;
-  const maxMl = Math.max(1, ...days.map((day) => day.bottleMl));
-  const maxMinutes = Math.max(1, ...days.map((day) => day.dbfMinutes));
-  const slot = width / days.length;
-  const line = days.map((day, index) => {
-    const x = index * slot + slot / 2;
-    const y = plotTop + plotHeight - (day.dbfMinutes / maxMinutes) * (plotHeight - 4);
-    return { x, y };
-  });
-  const path = line.map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`).join(" ");
-  return (
-    <div className="flex flex-col gap-2">
-      <svg viewBox={`0 0 ${width} ${height + 16}`} className="w-full" role="img">
-        {days.map((day, index) => {
-          const bar = slot * 0.5;
-          const x = index * slot + (slot - bar) / 2;
-          const h = (day.bottleMl / maxMl) * (plotHeight - 4);
-          return (
-            <g key={day.key}>
-              <rect x={x} y={plotTop + plotHeight - h} width={bar} height={h} rx={2} fill={SAGE} />
-              {day.feeds > 0 ? (
-                <text x={index * slot + slot / 2} y={11} textAnchor="middle" fontSize="8" fill="#3d4441">
-                  {day.feeds}
-                </text>
-              ) : null}
-              {showLabel(index, days.length) ? (
-                <text x={index * slot + slot / 2} y={height + 12} textAnchor="middle" fontSize="8" fill="#8b938e">
-                  {day.label}
-                </text>
-              ) : null}
-            </g>
-          );
-        })}
-        <path d={path} fill="none" stroke={SAGE_DEEP} strokeWidth="2" />
-        {line.map((point, index) =>
-          days[index] && days[index].dbfMinutes > 0 ? (
-            <circle key={days[index].key} cx={point.x} cy={point.y} r="2.5" fill={SAGE_DEEP} />
-          ) : null,
-        )}
-      </svg>
-      <ul className="flex flex-wrap gap-3 text-xs text-muted">
-        <li className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: SAGE }} />
-          {mlLabel}
-        </li>
-        <li className="flex items-center gap-1">
-          <span className="h-0.5 w-3" style={{ backgroundColor: SAGE_DEEP }} />
-          {minutesLabel}
-        </li>
-        <li>{countLabel}</li>
-      </ul>
-    </div>
   );
 }
 
