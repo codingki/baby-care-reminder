@@ -71,16 +71,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function hidesBrandHeader(pathname: string) {
+  return (
+    pathname === "/chiller" ||
+    pathname.startsWith("/chiller/") ||
+    pathname === "/insights" ||
+    pathname.startsWith("/insights/") ||
+    pathname === "/family" ||
+    pathname.startsWith("/family/")
+  );
+}
+
 function PathChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const sheetOpen = useAnySheetOpen();
   const home = pathname === "/";
   const log = pathname.startsWith("/log");
+  const bare = hidesBrandHeader(pathname);
   const hideNav = sheetOpen || log;
 
   return (
     <>
-      {home ? null : <BrandHeader />}
+      {home || bare ? null : <BrandHeader />}
       <main
         id="content"
         className={
@@ -88,7 +100,9 @@ function PathChrome({ children }: { children: React.ReactNode }) {
             ? "safe-x flex min-h-0 flex-1 flex-col overflow-y-auto pt-5 pb-5 max-sm:overflow-hidden max-sm:pb-0"
             : home
               ? "safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] pb-5"
-              : "safe-x min-h-0 flex-1 overflow-y-auto py-5"
+              : bare
+                ? "safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1.25rem,env(safe-area-inset-top))] pb-5"
+                : "safe-x min-h-0 flex-1 overflow-y-auto py-5"
         }
       >
         {children}
