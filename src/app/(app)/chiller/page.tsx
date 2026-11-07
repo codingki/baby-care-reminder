@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
+import { ClearChiller } from "@/components/clear-chiller";
 import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
@@ -16,6 +17,7 @@ export default function ChillerPage() {
   const [now, setNow] = useState(nowMs);
   const [live, setLive] = useState<LiveChillerItem[] | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(nowMs()), 30000);
@@ -31,13 +33,19 @@ export default function ChillerPage() {
       setLive(items);
       setState("ready");
     });
-  }, [device.items.length]);
+  }, [device.items.length, reload]);
 
-  const deviceItems: LiveChillerItem[] = device.items.map((item) => ({
-    ...item,
-    pumpName: deviceName(item, device.pumps),
-  }));
+  const deviceItems: LiveChillerItem[] = device.items
+    .filter((item) => !item.clearedAt)
+    .map((item) => ({
+      ...item,
+      pumpName: deviceName(item, device.pumps),
+      clearedAt: null,
+      clearedReason: null,
+    }));
   const items = mergeItems(live, deviceItems);
+  const active = items.filter((item) => !item.clearedAt);
+  const cleared = items.filter((item) => item.clearedAt);
 
   return (
     <Screen
@@ -46,21 +54,21 @@ export default function ChillerPage() {
       showLater={false}
       icon={<CareIcon name="chiller" className="h-8 w-8" />}
     >
-      {state === "loading" && items.length === 0 ? (
+      {state === "loading" && active.length === 0 ? (
         <p className="text-sm text-muted" role="status" aria-live="polite">
           {t("chiller.loading")}
         </p>
       ) : null}
-      {state === "error" && items.length === 0 ? (
+      {state === "error" && active.length === 0 ? (
         <p className="text-sm text-muted" role="alert">
           {t("chiller.error")}
         </p>
       ) : null}
-      {state !== "loading" && items.length === 0 ? (
+      {state !== "loading" && active.length === 0 ? (
         <p className="rounded-3xl border border-line bg-card px-5 py-4 text-sm leading-6">{t("chiller.empty")}</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {items.map((item) => {
+          {active.map((item) => {
             const remaining = new Date(item.expiresAt).getTime() - now;
             const expired = remaining < 0;
             const title =
@@ -71,10 +79,10 @@ export default function ChillerPage() {
               ? t("home.expired")
               : t("home.timeLeft", { time: formatSpan(remaining) });
             return (
-              <li key={item.id}>
+              <li key={item.id} className="rounded-3xl border border-line bg-card px-5 py-4">
                 <Link
                   href={`/chiller/${item.id}`}
-                  className="flex items-start gap-3 rounded-3xl border border-line bg-card px-5 py-4"
+                  className="flex items-start gap-3"
                 >
                   <CareIcon
                     name={item.type === "milk" ? "feed" : "chiller"}
@@ -87,11 +95,39 @@ export default function ChillerPage() {
                     <p className={`mt-1 text-sm ${expired ? "font-semibold text-accent" : ""}`}>{when}</p>
                   </span>
                 </Link>
+                <div className="mt-3">
+                  <ClearChiller id={item.id} type={item.type} onCleared={() => setReload((value) => value + 1)} />
+                </div>
               </li>
             );
           })}
         </ul>
       )}
+      {cleared.length > 0 ? (
+        <details className="rounded-3xl border border-line bg-card px-5 py-4">
+          <summary className="cursor-pointer text-sm font-semibold">
+            {t("chiller.cleared")} · {cleared.length}
+          </summary>
+          <ul className="mt-3 flex flex-col gap-3">
+            {cleared.map((item) => {
+              const title =
+                item.type === "milk"
+                  ? `${t("chiller.milk")}${item.volumeMl ? ` · ${item.volumeMl} ml` : ""}`
+                  : item.pumpName || t("chiller.parts");
+              return (
+                <li key={item.id} className="text-sm">
+                  <Link href={`/chiller/${item.id}`} className="font-semibold">
+                    {title}
+                  </Link>
+                  {item.clearedReason ? (
+                    <span className="text-muted"> · {t(`chiller.${item.clearedReason}`)}</span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      ) : null}
     </Screen>
   );
 }

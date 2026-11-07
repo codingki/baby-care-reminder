@@ -93,6 +93,7 @@ Deno.serve(async (request) => {
         .eq("type", "milk")
         .lte("expires_at", soon)
         .is("notified_at", null)
+        .is("cleared_at", null)
         .limit(200),
     ]);
 

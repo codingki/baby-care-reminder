@@ -24,6 +24,8 @@ export type ChillerItem = {
   pumpId: string | null;
   volumeMl: number | null;
   note?: string | null;
+  clearedAt?: string | null;
+  clearedReason?: "used" | "discarded" | "washed" | null;
 };
 
 export type CareState = {
@@ -206,6 +208,20 @@ export function removeOwnedPump(id: string) {
 export function replacePumps(pumps: OwnedPump[]) {
   const current = readCare();
   writeCare({ ...current, pumps });
+}
+
+export function markChillerCleared(
+  id: string,
+  clearedAt: string,
+  clearedReason: "used" | "discarded" | "washed",
+) {
+  const current = readCare();
+  writeCare({
+    ...current,
+    items: current.items.map((item) =>
+      item.id === id ? { ...item, clearedAt, clearedReason } : item,
+    ),
+  });
 }
 
 export function rememberChillerItem(item: ChillerItem) {

@@ -3,7 +3,17 @@ import { CHILLER_LOCATIONS } from "@/lib/device-care";
 import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
 
-export type LiveChillerItem = ChillerItem & { pumpName: string | null };
+export type ClearReason = "used" | "discarded" | "washed";
+
+export type LiveChillerItem = ChillerItem & {
+  pumpName: string | null;
+  clearedAt: string | null;
+  clearedReason: ClearReason | null;
+};
+
+function isClearReason(value: unknown): value is ClearReason {
+  return value === "used" || value === "discarded" || value === "washed";
+}
 
 function isLocation(value: string): value is ChillerLocation {
   return CHILLER_LOCATIONS.some((location) => location === value);
@@ -16,7 +26,7 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
   const [{ data: items, error }, { data: pumps }, { data: models }] = await Promise.all([
     supabase
       .from("chiller_items")
-      .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note")
+      .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note, cleared_at, cleared_reason")
       .eq("family_id", context.familyId)
       .order("expires_at"),
     supabase
@@ -44,6 +54,8 @@ export async function loadLiveChiller(): Promise<LiveChillerItem[] | null> {
         pumpId: (item.pump_id as string | null) ?? null,
         volumeMl: (item.volume_ml as number | null) ?? null,
         note: typeof item.note === "string" && item.note.trim() ? item.note.trim() : null,
+        clearedAt: typeof item.cleared_at === "string" ? item.cleared_at : null,
+        clearedReason: isClearReason(item.cleared_reason) ? item.cleared_reason : null,
         pumpName,
       },
     ];

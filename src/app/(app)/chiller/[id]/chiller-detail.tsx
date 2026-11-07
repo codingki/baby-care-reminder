@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CareIcon } from "@/components/care-icon";
+import { ClearChiller } from "@/components/clear-chiller";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
@@ -44,7 +45,12 @@ export function ChillerDetail({ id }: { id: string }) {
       const pump = care.pumps.find((entry) => entry.id === local?.pumpId) ?? null;
       setItem(
         local
-          ? { ...local, pumpName: pump ? pumpLabel(pump) : null }
+          ? {
+              ...local,
+              pumpName: pump ? pumpLabel(pump) : null,
+              clearedAt: local.clearedAt ?? null,
+              clearedReason: local.clearedReason ?? null,
+            }
           : null,
       );
       setState("ready");
@@ -109,11 +115,31 @@ export function ChillerDetail({ id }: { id: string }) {
             {item.note}
           </p>
         ) : null}
-        <p className={`text-sm font-semibold ${expired ? "text-accent" : ""}`}>{relative}</p>
-        {item.type === "pump_parts" ? (
+        {item.clearedAt ? (
+          <p className="text-sm font-semibold">
+            {t("chiller.cleared")}
+            {item.clearedReason ? ` · ${t(`chiller.${item.clearedReason}`)}` : ""}
+          </p>
+        ) : (
+          <p className={`text-sm font-semibold ${expired ? "text-accent" : ""}`}>{relative}</p>
+        )}
+        {item.clearedAt ? null : item.type === "pump_parts" ? (
           <PartsDisclaimer time={when} seen={care.partsDisclaimerSeen} />
         ) : (
           <p className="text-sm">{t("chiller.useBy", { time: when })}</p>
+        )}
+        {item.clearedAt ? null : (
+          <ClearChiller
+            id={item.id}
+            type={item.type}
+            onCleared={(reason) =>
+              setItem({
+                ...item,
+                clearedAt: new Date().toISOString(),
+                clearedReason: reason,
+              })
+            }
+          />
         )}
       </div>
     </Screen>

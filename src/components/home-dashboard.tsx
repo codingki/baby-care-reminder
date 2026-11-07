@@ -212,6 +212,7 @@ export function HomeDashboard() {
         .from("chiller_items")
         .select("id, type, location, stored_at, expires_at, volume_ml, pump_id, note")
         .eq("family_id", familyId)
+        .is("cleared_at", null)
         .order("expires_at")
         .limit(40),
       supabase
@@ -296,7 +297,7 @@ export function HomeDashboard() {
   }, [baby, locale, t]);
 
   const mergedPumps = mergePumps(pumps, device.pumps);
-  const deviceChiller: ChillerRow[] = device.items.map((item) => ({
+  const deviceChiller: ChillerRow[] = device.items.filter((item) => !item.clearedAt).map((item) => ({
     id: item.id,
     type: item.type,
     location: item.location,
