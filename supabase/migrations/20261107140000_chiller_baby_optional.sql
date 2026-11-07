@@ -1,50 +1,11 @@
 -- Chiller storage is family-wide. Pump parts never belong to a baby.
 -- Milk may name a baby, and that field starts empty.
-
-alter table public.chiller_items
-  alter column baby_id drop not null;
-
-alter table public.chiller_items
-  drop constraint chiller_items_baby_id_fkey;
-
-alter table public.chiller_items
-  add constraint chiller_items_baby_id_fkey
-  foreign key (baby_id) references public.babies (id) on delete set null;
-
-comment on column public.chiller_items.baby_id is
-  'Optional baby for milk. Null for family milk and for every pump-parts item.';
-
-alter table public.reminders
-  alter column baby_id drop not null;
-
-update public.chiller_items
-set baby_id = null
-where type = 'pump_parts';
-
-update public.reminders
-set baby_id = null
-where reminder_type = 'pump_parts';
-
-alter table public.reminders
-  drop constraint reminders_shape;
-
-alter table public.reminders
-  add constraint reminders_shape check (
-    (
-      reminder_type = 'pump_parts'
-      and chiller_item_id is not null
-      and audience = 'caregivers'
-      and baby_id is null
-    )
-    or (
-      reminder_type <> 'pump_parts'
-      and chiller_item_id is null
-      and baby_id is not null
-    )
-  );
-
-comment on column public.reminders.baby_id is
-  'The baby a care reminder belongs to. Null for a pump-parts wash reminder.';
+--
+-- Order matters on a database that already has pump-parts rows:
+-- replace the triggers first, or the backfill UPDATE still calls the old
+-- prepare_chiller_item and raises 'invalid baby'. prepare_reminder copies
+-- old.baby_id on UPDATE, so the reminders backfill has to run with that
+-- trigger disabled. reminders_shape is added only after both backfills.
 
 create or replace function private.prepare_chiller_item()
 returns trigger
@@ -187,6 +148,55 @@ $$;
 
 comment on function private.sync_pump_parts_reminder() is
   'Pump parts get a family wash reminder with no baby. It stays off once the item is cleared or expired.';
+
+alter table public.chiller_items
+  alter column baby_id drop not null;
+
+alter table public.chiller_items
+  drop constraint chiller_items_baby_id_fkey;
+
+alter table public.chiller_items
+  add constraint chiller_items_baby_id_fkey
+  foreign key (baby_id) references public.babies (id) on delete set null;
+
+comment on column public.chiller_items.baby_id is
+  'Optional baby for milk. Null for family milk and for every pump-parts item.';
+
+alter table public.reminders
+  alter column baby_id drop not null;
+
+update public.chiller_items
+set baby_id = null
+where type = 'pump_parts';
+
+alter table public.reminders disable trigger reminders_prepare;
+
+update public.reminders
+set baby_id = null
+where reminder_type = 'pump_parts';
+
+alter table public.reminders enable trigger reminders_prepare;
+
+alter table public.reminders
+  drop constraint reminders_shape;
+
+alter table public.reminders
+  add constraint reminders_shape check (
+    (
+      reminder_type = 'pump_parts'
+      and chiller_item_id is not null
+      and audience = 'caregivers'
+      and baby_id is null
+    )
+    or (
+      reminder_type <> 'pump_parts'
+      and chiller_item_id is null
+      and baby_id is not null
+    )
+  );
+
+comment on column public.reminders.baby_id is
+  'The baby a care reminder belongs to. Null for a pump-parts wash reminder.';
 
 alter table public.babies
   add column photo_path text;
