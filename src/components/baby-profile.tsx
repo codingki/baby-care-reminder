@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BabyAvatar, saveBabyPhoto } from "@/components/baby-photo";
+import { BabyPhotoField } from "@/components/baby-photo";
 import { CareIcon } from "@/components/care-icon";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
@@ -98,7 +98,6 @@ export function BabyProfile() {
         return (
           <article key={baby.id} className="flex flex-col gap-3 rounded-3xl border border-line bg-card px-5 py-4">
             <div className="flex items-center gap-3">
-              <BabyAvatar name={baby.name} path={baby.photoPath} />
               <div className="min-w-0">
                 <h3 className="flex items-center gap-2 text-base font-semibold">
                   <CareIcon name="baby" className="h-5 w-5 text-accent" />
@@ -107,25 +106,19 @@ export function BabyProfile() {
                 <p className="text-sm text-muted">{t("family.babyProfile")}</p>
               </div>
             </div>
-            <label className="text-sm font-semibold text-accent">
-              {t("family.changePhoto")}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="sr-only"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  if (!file || !familyId) return;
-                  void saveBabyPhoto(familyId, baby.id, file).then((path) => {
-                    if (!path) return;
-                    setBabies((current) =>
-                      current.map((entry) => (entry.id === baby.id ? { ...entry, photoPath: path } : entry)),
-                    );
-                  });
-                }}
+            {familyId ? (
+              <BabyPhotoField
+                familyId={familyId}
+                babyId={baby.id}
+                name={baby.name}
+                path={baby.photoPath}
+                onChange={(photoPath) =>
+                  setBabies((current) =>
+                    current.map((entry) => (entry.id === baby.id ? { ...entry, photoPath } : entry)),
+                  )
+                }
               />
-            </label>
+            ) : null}
             <p className="text-base font-semibold">
               {t("weight.latest")}
               {" · "}

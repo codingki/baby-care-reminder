@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BabyPhotoField } from "@/components/baby-photo";
 import { CareIcon } from "@/components/care-icon";
 import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/provider";
+import { rememberBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
 
 const sexes = ["female", "male", "unspecified"] as const;
@@ -20,6 +23,7 @@ export default function OnboardingPage() {
   const [sex, setSex] = useState<(typeof sexes)[number]>("unspecified");
   const [weightKg, setWeightKg] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [photoBaby, setPhotoBaby] = useState<{ id: string; name: string; path: string | null } | null>(null);
   const [pending, setPending] = useState(false);
   const lock = useRef(false);
 
@@ -79,20 +83,24 @@ export default function OnboardingPage() {
     setError(null);
     try {
       const supabase = createClient();
-      const { error: insertError } = await supabase.from("babies").insert({
-        family_id: familyId,
-        name: name.trim(),
-        birth_date: birthDate,
-        sex,
-        weight_grams: Math.round(kg * 1000),
-        feeding_type: "bottle",
-      });
-      if (insertError) {
+      const { data, error: insertError } = await supabase
+        .from("babies")
+        .insert({
+          family_id: familyId,
+          name: name.trim(),
+          birth_date: birthDate,
+          sex,
+          weight_grams: Math.round(kg * 1000),
+          feeding_type: "bottle",
+        })
+        .select("id")
+        .single();
+      if (insertError || !data?.id) {
         setError(t("onboarding.error"));
         return;
       }
-      router.push("/");
-      router.refresh();
+      rememberBaby(familyId, data.id);
+      setPhotoBaby({ id: data.id, name: name.trim(), path: null });
     } finally {
       lock.current = false;
       setPending(false);
@@ -101,13 +109,26 @@ export default function OnboardingPage() {
 
   return (
     <Screen
-      titleKey={familyId ? "onboarding.title" : "onboarding.familyTitle"}
-      ledeKey="onboarding.lede"
+      titleKey={photoBaby ? "onboarding.photoTitle" : familyId ? "onboarding.title" : "onboarding.familyTitle"}
+      ledeKey={photoBaby ? "onboarding.photoLede" : "onboarding.lede"}
       backHref="/"
       showLater={false}
       icon={<CareIcon name={familyId ? "baby" : "family"} className="h-8 w-8" />}
     >
-      {familyId === null ? (
+      {photoBaby && familyId ? (
+        <div className="flex flex-col gap-4">
+          <BabyPhotoField
+            familyId={familyId}
+            babyId={photoBaby.id}
+            name={photoBaby.name}
+            path={photoBaby.path}
+            onChange={(path) => setPhotoBaby({ ...photoBaby, path })}
+          />
+          <Button type="button" variant="outline" onClick={() => router.push("/")}>
+            {photoBaby.path ? t("onboarding.photoContinue") : t("onboarding.photoSkip")}
+          </Button>
+        </div>
+      ) : familyId === null ? (
         <form
           className="flex flex-col gap-3"
           onSubmit={(event) => {
