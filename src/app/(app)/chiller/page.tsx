@@ -52,11 +52,13 @@ export default function ChillerPage() {
   const items = mergeItems(live, deviceItems);
   const active = items.filter((item) => !item.clearedAt);
   const cleared = items.filter((item) => item.clearedAt);
-  const expired = active.filter((item) => new Date(item.expiresAt).getTime() < now);
+  const expiredMilk = active.filter(
+    (item) => item.type === "milk" && new Date(item.expiresAt).getTime() < now,
+  );
   const visible = filter === "cleared" ? cleared : active;
 
   async function clearExpired() {
-    if (clearAllLock.current || expired.length === 0) return;
+    if (clearAllLock.current || expiredMilk.length === 0) return;
     clearAllLock.current = true;
     setClearAllPending(true);
     setClearAllError(null);
@@ -69,7 +71,7 @@ export default function ChillerPage() {
         return;
       }
       const clearedAt = new Date().toISOString();
-      const ids = expired.map((item) => item.id);
+      const ids = expiredMilk.map((item) => item.id);
       const { error } = await supabase
         .from("chiller_items")
         .update({ cleared_at: clearedAt, cleared_reason: "discarded", cleared_by: userId })
@@ -79,8 +81,8 @@ export default function ChillerPage() {
         setClearAllError(t("common.failed"));
         return;
       }
-      for (const item of expired) markChillerCleared(item.id, clearedAt, "discarded");
-      undo.show(expired.map(toUndo));
+      for (const item of expiredMilk) markChillerCleared(item.id, clearedAt, "discarded");
+      undo.show(expiredMilk.map(toUndo));
       setClearAllConfirm(false);
       setReload((value) => value + 1);
     } finally {
@@ -118,7 +120,7 @@ export default function ChillerPage() {
           {t("chiller.cleared")}
         </button>
       </div>
-      {filter === "active" && expired.length > 0 ? (
+      {filter === "active" && expiredMilk.length > 0 ? (
         <div className="flex flex-col gap-2">
           {clearAllConfirm ? (
             <>
