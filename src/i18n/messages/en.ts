@@ -359,6 +359,8 @@ export const en = {
     snoozeNow: "Snooze {minutes} minutes",
     snoozed: "Snoozed until {time}",
     clearSnooze: "Resume",
+    familyActivity: "Family activity",
+    familyActivityHint: "When someone else in the family logs care. Quiet hours and snooze still apply.",
     alerts: "Alerts",
     alertsHint: "Choose which reminders this device's account receives.",
     alertDiaper: "Diaper",

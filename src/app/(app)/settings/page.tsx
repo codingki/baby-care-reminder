@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { AlertChoices } from "@/components/alert-choices";
+import { FamilyActivitySwitch } from "@/components/family-activity-switch";
 import { SectionHeading } from "@/components/care-icon";
 import { BabySettings } from "@/components/baby-settings";
 import { LanguageSwitch } from "@/components/language-switch";
@@ -38,6 +39,7 @@ export default function SettingsPage() {
         <p className="text-sm leading-6 text-muted">{t("settings.unitHint")}</p>
       </Card>
       <ReminderSettings />
+      <FamilyActivitySwitch />
       <AlertChoices />
       <SignOutButton />
     </section>

@@ -362,6 +362,8 @@ export const id = {
     snoozeNow: "Tunda {minutes} menit",
     snoozed: "Ditunda sampai {time}",
     clearSnooze: "Lanjutkan",
+    familyActivity: "Aktivitas keluarga",
+    familyActivityHint: "Saat anggota keluarga lain mencatat. Jam tenang dan tunda tetap berlaku.",
     alerts: "Pengingat",
     alertsHint: "Pilih pengingat yang diterima akun ini.",
     alertDiaper: "Popok",

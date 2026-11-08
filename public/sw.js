@@ -1,4 +1,4 @@
-const CACHE = "baby-care-shell-v3";
+const CACHE = "baby-care-shell-v4";
 const PRECACHE = ["/offline.html"];
 
 self.addEventListener("install", (event) => {
@@ -44,14 +44,17 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("push", (event) => {
   const payload = readPush(event);
-  event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url: payload.url },
-    }),
-  );
+  const options = {
+    body: payload.body,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url: payload.url },
+  };
+  if (payload.tag) {
+    options.tag = payload.tag;
+    options.renotify = true;
+  }
+  event.waitUntil(self.registration.showNotification(payload.title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
@@ -82,6 +85,7 @@ function readPush(event) {
       title: typeof parsed.title === "string" ? parsed.title : fallback.title,
       body: typeof parsed.body === "string" ? parsed.body : "",
       url: typeof parsed.url === "string" ? parsed.url : "/",
+      tag: typeof parsed.tag === "string" ? parsed.tag : "",
     };
   } catch {
     return { ...fallback, body: event.data.text() };
