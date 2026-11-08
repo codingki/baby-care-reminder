@@ -29,6 +29,56 @@ function clock(hour: number) {
   return `${String(hour).padStart(2, "0")}:00`;
 }
 
+export function PumpHourDayFields({
+  hours,
+  days,
+  onHours,
+  onDays,
+}: {
+  hours: number[];
+  days: number[];
+  onHours: (hours: number[]) => void;
+  onDays: (days: number[]) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-semibold">{t("settings.pumpHours")}</p>
+        <div className="grid grid-cols-4 gap-2">
+          {HOURS.map((hour) => (
+            <Toggle
+              key={hour}
+              pressed={hours.includes(hour)}
+              onPressedChange={(on) => onHours(normalizeHours(on ? [...hours, hour] : hours.filter((item) => item !== hour)))}
+              className="w-full px-0"
+              aria-label={clock(hour)}
+            >
+              {clock(hour)}
+            </Toggle>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-semibold">{t("settings.pumpDays")}</p>
+        <div className="flex flex-wrap gap-2">
+          {DAYS.map((item) => (
+            <Toggle
+              key={item.day}
+              pressed={days.includes(item.day)}
+              onPressedChange={(on) => onDays(normalizeDays(on ? [...days, item.day] : days.filter((entry) => entry !== item.day)))}
+              aria-label={t(item.key)}
+            >
+              {t(item.key)}
+            </Toggle>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function PumpSchedule() {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -59,20 +109,6 @@ export function PumpSchedule() {
       setReady(true);
     })();
   }, []);
-
-  function toggleHour(hour: number, on: boolean) {
-    setHours((current) => {
-      const next = on ? [...current, hour] : current.filter((item) => item !== hour);
-      return normalizeHours(next);
-    });
-  }
-
-  function toggleDay(day: number, on: boolean) {
-    setDays((current) => {
-      const next = on ? [...current, day] : current.filter((item) => item !== day);
-      return normalizeDays(next);
-    });
-  }
 
   async function save() {
     if (lock.current) return;
@@ -119,37 +155,7 @@ export function PumpSchedule() {
       <p className="text-sm leading-6 text-muted">{t("settings.pumpScheduleHint")}</p>
       {ready ? (
         <>
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-semibold">{t("settings.pumpHours")}</p>
-            <div className="grid grid-cols-4 gap-2">
-              {HOURS.map((hour) => (
-                <Toggle
-                  key={hour}
-                  pressed={hours.includes(hour)}
-                  onPressedChange={(on) => toggleHour(hour, on)}
-                  className="w-full px-0"
-                  aria-label={clock(hour)}
-                >
-                  {clock(hour)}
-                </Toggle>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-semibold">{t("settings.pumpDays")}</p>
-            <div className="flex flex-wrap gap-2">
-              {DAYS.map((item) => (
-                <Toggle
-                  key={item.day}
-                  pressed={days.includes(item.day)}
-                  onPressedChange={(on) => toggleDay(item.day, on)}
-                  aria-label={t(item.key)}
-                >
-                  {t(item.key)}
-                </Toggle>
-              ))}
-            </div>
-          </div>
+          <PumpHourDayFields hours={hours} days={days} onHours={setHours} onDays={setDays} />
           <Button type="button" onClick={() => void save()} disabled={pending} aria-busy={pending}>
             {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
           </Button>

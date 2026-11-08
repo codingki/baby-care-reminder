@@ -93,19 +93,22 @@ function PathChrome({ children }: { children: React.ReactNode }) {
   const sheetOpen = useAnySheetOpen();
   const home = pathname === "/";
   const log = pathname.startsWith("/log");
+  const setup = pathname.startsWith("/onboarding");
   const bare = hidesBrandHeader(pathname);
-  const hideNav = sheetOpen || log;
+  const hideNav = sheetOpen || log || setup;
   const mainRef = useRef<HTMLElement>(null);
 
   return (
     <>
-      {home || bare ? null : <BrandHeader />}
+      {home || bare || setup ? null : <BrandHeader />}
       <main
         id="content"
         ref={mainRef}
         className={`relative ${
           log
             ? "safe-x flex min-h-0 flex-1 flex-col overflow-y-auto pt-5 pb-5 max-sm:overflow-hidden max-sm:pb-0"
+            : setup
+              ? "safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] pb-5"
             : home
               ? `safe-x min-h-0 flex-1 overflow-y-auto pt-[max(1rem,env(safe-area-inset-top))] ${hideNav ? "pb-5" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"}`
               : bare

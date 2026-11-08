@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
-import { deviceTimeZone, saveDeviceTimeZone, timeZoneOptions } from "@/lib/device-timezone";
+import { deviceTimeZone, timeZoneOptions } from "@/lib/device-timezone";
+import { subscribeToPush } from "@/lib/push-subscribe";
 import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
 
@@ -91,52 +92,17 @@ export function ReminderSettings() {
   }
 
   async function enableNotifications() {
-    const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    if (!key) {
-      setNote(t("settings.vapidMissing"));
-      return;
-    }
-    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-      setNote(t("settings.notificationsUnsupported"));
-      return;
-    }
-    if (isIos() && !isStandalone()) {
-      setNote(t("settings.iosBody"));
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      setNote(t("settings.notificationsDenied"));
-      return;
-    }
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(key),
-    });
-    const json = subscription.toJSON();
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth || !userId) {
+    if (!userId || !familyId) {
       setNote(t("common.failed"));
       return;
     }
-    const supabase = createClient();
-    const { error } = await supabase.from("push_subscriptions").upsert(
-      {
-        user_id: userId,
-        family_id: familyId,
-        endpoint: json.endpoint,
-        p256dh: json.keys.p256dh,
-        auth_key: json.keys.auth,
-        user_agent: navigator.userAgent,
-      },
-      { onConflict: "endpoint" },
-    );
-    if (error || !userId || !familyId) {
-      setNote(t("common.failed"));
-      return;
-    }
-    await saveDeviceTimeZone(userId, familyId);
-    setNote(t("settings.notificationsOn"));
+    const result = await subscribeToPush(userId, familyId);
+    if (result === "ok") setNote(t("settings.notificationsOn"));
+    else if (result === "missing-key") setNote(t("settings.vapidMissing"));
+    else if (result === "unsupported") setNote(t("settings.notificationsUnsupported"));
+    else if (result === "ios-install") setNote(t("settings.iosBody"));
+    else if (result === "denied") setNote(t("settings.notificationsDenied"));
+    else setNote(t("common.failed"));
   }
 
   async function saveTimeZone(zone: string, manual: boolean) {
@@ -340,18 +306,6 @@ export function ReminderSettings() {
   );
 }
 
-function isIos() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent);
-}
-
-function isStandalone() {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    ("standalone" in navigator &&
-      (navigator as Navigator & { standalone?: boolean }).standalone === true)
-  );
-}
-
 function clock(iso: string, locale: Locale) {
   return new Date(iso).toLocaleTimeString(locale === "id" ? "id-ID" : "en-US", {
     hour: "numeric",
@@ -359,11 +313,3 @@ function clock(iso: string, locale: Locale) {
   });
 }
 
-function urlBase64ToUint8Array(value: string) {
-  const padding = "=".repeat((4 - (value.length % 4)) % 4);
-  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = window.atob(base64);
-  const output = new Uint8Array(raw.length);
-  for (let index = 0; index < raw.length; index += 1) output[index] = raw.charCodeAt(index);
-  return output;
-}

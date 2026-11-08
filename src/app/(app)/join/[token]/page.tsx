@@ -28,7 +28,7 @@ export default function JoinPage({ params }: { params: Promise<{ token: string }
         setNote(t("family.inviteError"));
         return;
       }
-      router.push("/");
+      router.push("/onboarding");
     } finally {
       lock.current = false;
       setPending(false);

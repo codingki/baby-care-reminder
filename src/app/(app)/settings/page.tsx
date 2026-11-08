@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { AlertChoices } from "@/components/alert-choices";
 import { FamilyActivitySwitch } from "@/components/family-activity-switch";
 import { SectionHeading } from "@/components/care-icon";
@@ -11,6 +12,7 @@ import { PumpSchedule } from "@/components/pump-schedule";
 import { ReminderSettings } from "@/components/reminder-settings";
 import { SignOutButton } from "@/components/sign-out-button";
 import { WashByHours } from "@/components/wash-by-hours";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/provider";
 
@@ -41,6 +43,9 @@ export default function SettingsPage() {
       <ReminderSettings />
       <FamilyActivitySwitch />
       <AlertChoices />
+      <Button asChild variant="outline">
+        <Link href="/onboarding?mode=edit">{t("settings.runSetup")}</Link>
+      </Button>
       <SignOutButton />
     </section>
   );
