@@ -162,12 +162,13 @@ export function ChillerSheet({
         {step === "milk" ? (
           <form
             id="chiller-milk"
-            className="flex flex-col gap-3"
+            className="flex flex-col"
             onSubmit={(event) => {
               event.preventDefault();
               void storeMilk();
             }}
           >
+            <div className="flex flex-col gap-4">
             <Button
               type="button"
               variant="link"
@@ -181,7 +182,6 @@ export function ChillerSheet({
               <CareIcon name="feed" className="h-4 w-4 text-accent" />
               {t("home.storeMilk")}
             </h3>
-            <WhenField when={when} onChange={setWhen} />
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-ml">
               {t("pump.milkAmount")}
               <Input
@@ -240,18 +240,21 @@ export function ChillerSheet({
                 onChange={(event) => setMilkNote(event.target.value)}
               />
             </label>
+            </div>
+            <WhenField when={when} onChange={setWhen} />
           </form>
         ) : null}
 
         {step === "parts" ? (
           <form
             id="chiller-parts"
-            className="flex flex-col gap-3"
+            className="flex flex-col"
             onSubmit={(event) => {
               event.preventDefault();
               void storeParts();
             }}
           >
+            <div className="flex flex-col gap-4">
             <Button
               type="button"
               variant="link"
@@ -265,7 +268,6 @@ export function ChillerSheet({
               <CareIcon name="pump" className="h-4 w-4 text-accent" />
               {t("home.storeParts")}
             </h3>
-            <WhenField when={when} onChange={setWhen} />
             {pumps.length === 0 ? (
               <p className="text-sm leading-6">
                 {t("pump.noPumps")}{" "}
@@ -293,6 +295,8 @@ export function ChillerSheet({
             {selectedPump && activePartPumpIds.includes(selectedPump) ? (
               <p className="text-sm text-muted">{t("chiller.replacesExisting")}</p>
             ) : null}
+            </div>
+            <WhenField when={when} onChange={setWhen} />
           </form>
         ) : null}
 

@@ -110,7 +110,7 @@ function LogEditor({
       }
       onSave={() => void save()}
     >
-      <WhenField when={when} onChange={setWhen} />
+      <div className="flex flex-col gap-4">
       {showAmount ? (
         <label className="flex flex-col gap-2 text-sm font-semibold">
           {t("feed.amount")}
@@ -123,6 +123,8 @@ function LogEditor({
           <Input type="number" inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} />
         </label>
       ) : null}
+      </div>
+      <WhenField when={when} onChange={setWhen} />
     </EditorFrame>
   );
 }
@@ -191,9 +193,8 @@ function ChillerEditor({
       }
       onSave={() => void save()}
     >
-      <WhenField when={when} onChange={setWhen} />
       {entry.type === "milk" ? (
-        <>
+        <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2 text-sm font-semibold">
             {t("feed.amount")}
             <Input type="number" inputMode="decimal" value={volume} onChange={(event) => setVolume(event.target.value)} />
@@ -202,8 +203,9 @@ function ChillerEditor({
             {t("chiller.note")}
             <Input value={note} onChange={(event) => setNote(event.target.value)} />
           </label>
-        </>
+        </div>
       ) : null}
+      <WhenField when={when} onChange={setWhen} />
     </EditorFrame>
   );
 }
@@ -232,7 +234,7 @@ function EditorFrame({
     <div className="flex max-h-[inherit] flex-col">
       <DialogTitle className="safe-x pt-2 text-lg font-semibold">{title}</DialogTitle>
       <DialogDescription className="sr-only">{title}</DialogDescription>
-      <div className="safe-x flex min-h-0 flex-col gap-3 overflow-y-auto py-3">{children}</div>
+      <div className="safe-x flex min-h-0 flex-col overflow-y-auto py-3">{children}</div>
       <div className="safe-x flex flex-col gap-2 border-t border-line py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {confirm ? (
           <>

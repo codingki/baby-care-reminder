@@ -92,21 +92,21 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   return (
     <>
       <div className={field}>
-        <WhenField when={when} onChange={setWhen} />
-        <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-ml">
-          {unit === "oz" ? t("feed.ounces") : t("feed.amount")}
-          <Input
-            id="feed-ml"
-            type="number"
-            inputMode="decimal"
-            min={1}
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-          />
-        </label>
-        <div className="mt-3">
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-ml">
+            {unit === "oz" ? t("feed.ounces") : t("feed.amount")}
+            <Input
+              id="feed-ml"
+              type="number"
+              inputMode="decimal"
+              min={1}
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+          </label>
           <PresetChips values={volumePresets(unit)} onPick={(value) => setAmount(String(value))} />
         </div>
+        <WhenField when={when} onChange={setWhen} />
       </div>
       <div className={footer}>
         {message ? <p role="status">{message}</p> : null}
@@ -149,7 +149,7 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   return (
     <>
       <div className={field}>
-        <WhenField when={when} onChange={setWhen} />
+        <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">{t("dbf.side")}</p>
           <div className="grid grid-cols-2 gap-2">
@@ -170,7 +170,7 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
             })}
           </div>
         </div>
-        <label className="mt-3 flex flex-col gap-2 text-sm font-semibold" htmlFor="dbf-minutes">
+        <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="dbf-minutes">
           {t("dbf.duration")}
           <Input
             id="dbf-minutes"
@@ -181,9 +181,9 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
             onChange={(event) => setMinutes(event.target.value)}
           />
         </label>
-        <div className="mt-3">
-          <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
+        <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
         </div>
+        <WhenField when={when} onChange={setWhen} />
       </div>
       <div className={footer}>
         {message ? <p role="status">{message}</p> : null}
@@ -252,7 +252,6 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
   return (
     <>
       <div className={field}>
-        <WhenField when={when} onChange={setWhen} />
         {kind === null || kind === "wet" ? (
           <div className="grid grid-cols-1 gap-3">
             {diaperChoices.map((choice) => (
@@ -356,6 +355,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
           </form>
         )}
         {detailed ? null : message ? <p role="status" className="mt-3">{message}</p> : null}
+        <WhenField when={when} onChange={setWhen} />
       </div>
       {detailed ? (
         <div className={footer}>
@@ -410,29 +410,31 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
   return (
     <>
       <div className={field}>
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-kg">
+            {t("weight.kg")}
+            <Input
+              id="weight-kg"
+              type="number"
+              inputMode="decimal"
+              min={0.01}
+              step={0.01}
+              value={kg}
+              onChange={(event) => setKg(event.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-date">
+            {t("weight.date")}
+            <Input
+              id="weight-date"
+              type="date"
+              required
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </label>
+        </div>
         <WhenField when={when} onChange={setWhen} />
-        <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-kg">
-          {t("weight.kg")}
-          <Input
-            id="weight-kg"
-            type="number"
-            inputMode="decimal"
-            min={0.01}
-            step={0.01}
-            value={kg}
-            onChange={(event) => setKg(event.target.value)}
-          />
-        </label>
-        <label className="mt-3 flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-date">
-          {t("weight.date")}
-          <Input
-            id="weight-date"
-            type="date"
-            required
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </label>
       </div>
       <div className={footer}>
         {message ? <p role="status">{message}</p> : null}
@@ -580,7 +582,7 @@ export function PumpLog({
   return (
     <>
       <div className={field}>
-        <WhenField when={when} onChange={setWhen} />
+        <div className="flex flex-col gap-4">
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pumped-ml">
           {t("pump.amount")}
           <Input
@@ -592,10 +594,8 @@ export function PumpLog({
             onChange={(event) => setPumpedMl(event.target.value)}
           />
         </label>
-        <div className="mt-3">
-          <PresetChips values={volumePresets(unit)} onPick={(value) => setPumpedMl(String(value))} />
-        </div>
-        <label className="mt-3 flex flex-col gap-2 text-sm font-semibold" htmlFor="pump-minutes">
+        <PresetChips values={volumePresets(unit)} onPick={(value) => setPumpedMl(String(value))} />
+        <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pump-minutes">
           {t("pump.duration")}
           <Input
             id="pump-minutes"
@@ -606,18 +606,16 @@ export function PumpLog({
             onChange={(event) => setMinutes(event.target.value)}
           />
         </label>
-        <div className="mt-3">
-          <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
-        </div>
+        <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
         {care.pumps.length === 0 ? (
-          <p className="mt-3 text-sm leading-6">
+          <p className="text-sm leading-6">
             {t("pump.noPumps")}{" "}
             <Link href="/settings" className="font-semibold text-accent" onClick={onClose}>
               {t("pump.addPumps")}
             </Link>
           </p>
         ) : (
-          <label className="mt-3 flex flex-col gap-2 text-sm font-semibold" htmlFor="session-pump">
+          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="session-pump">
             {t("pump.pickPump")}
             <Select value={selectedPump?.id} onValueChange={setPumpId}>
               <SelectTrigger id="session-pump">
@@ -634,7 +632,7 @@ export function PumpLog({
           </label>
         )}
         {logged ? (
-          <Card className="mt-4 gap-4 p-4">
+          <Card className="gap-4 p-4">
             <p className="text-sm leading-6">{t("pump.logged")}</p>
             <label className="flex min-h-12 items-center justify-between gap-3 text-base font-semibold">
               <span>{t("pump.storeParts")}</span>
@@ -696,6 +694,8 @@ export function PumpLog({
             ) : null}
           </Card>
         ) : null}
+        </div>
+        <WhenField when={when} onChange={setWhen} />
       </div>
       <div className={footer}>
         {status ? <p role="status">{status}</p> : null}
