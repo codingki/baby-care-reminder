@@ -7,10 +7,12 @@ import { CareIcon } from "@/components/care-icon";
 import { PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
+import { DecimalInput } from "@/components/decimal-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useWhen, WhenField } from "@/components/when-field";
 import { useI18n } from "@/i18n/provider";
+import { parseDecimal } from "@/lib/decimal";
 import { loadFamilyContext } from "@/lib/family-context";
 import { saveChillerItem } from "@/lib/save-log";
 
@@ -40,7 +42,7 @@ export function ChillerSheet({
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const lock = useRef(false);
   const [step, setStep] = useState<Step>("choose");
   const [pending, setPending] = useState(false);
@@ -55,8 +57,8 @@ export function ChillerSheet({
 
   const onlyPump = pumps.length === 1 ? pumps[0].id : "";
   const selectedPump = pumps.some((pump) => pump.id === pumpId) ? pumpId : onlyPump;
-  const milkAmount = Number(milkMl);
-  const milkReady = Number.isFinite(milkAmount) && milkAmount > 0;
+  const milkAmount = parseDecimal(milkMl);
+  const milkReady = milkAmount !== null && milkAmount > 0;
 
   useEffect(() => {
     void loadFamilyContext().then((context) => {
@@ -65,7 +67,7 @@ export function ChillerSheet({
   }, []);
 
   async function storeMilk() {
-    if (lock.current || !milkReady) return;
+    if (lock.current || milkAmount === null || milkAmount <= 0) return;
     lock.current = true;
     setPending(true);
     setStatus(null);
@@ -184,14 +186,7 @@ export function ChillerSheet({
             </h3>
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-ml">
               {t("pump.milkAmount")}
-              <Input
-                id="sheet-milk-ml"
-                type="number"
-                inputMode="decimal"
-                min={1}
-                value={milkMl}
-                onChange={(event) => setMilkMl(event.target.value)}
-              />
+              <DecimalInput locale={locale} id="sheet-milk-ml" value={milkMl} onValueChange={setMilkMl} />
           </label>
           <PresetChips values={volumePresets(unit)} onPick={(value) => setMilkMl(String(value))} />
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-where">

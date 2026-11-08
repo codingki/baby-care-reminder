@@ -19,7 +19,8 @@ import type { Locale } from "@/i18n/locales";
 import type { MessageKey } from "@/i18n/translate";
 import { formatBabyAge } from "@/lib/baby-age";
 import { CHILLER_LOCATIONS, pumpLabel, type ChillerLocation, type OwnedPump } from "@/lib/device-care";
-import { diaperIntervalMinutes, feedIntervalMinutes, DEFAULT_CARE_INTERVAL_MINUTES } from "@/lib/feed-interval";
+import { diaperIntervalMinutes, feedIntervalMinutes } from "@/lib/feed-interval";
+import { pumpCardTimes } from "@/lib/pump-schedule";
 import { loadRemotePumps } from "@/lib/family-pumps";
 import { readQueue } from "@/lib/offline-queue";
 import { formatSpan, nowMs } from "@/lib/relative-time";
@@ -39,10 +40,12 @@ type HomeData = {
   baby: Baby | null;
   diaperAt: string | null;
   feedAt: string | null;
-  pumpAt: string | null;
+  pumpHours: number[];
+  pumpDays: number[];
+  pumpTimeZone: string;
+  lastFamilyPump: string | null;
   diaperStart: string | null;
   feedStart: string | null;
-  pumpStart: string | null;
   logs: LogRow[];
   chiller: ChillerRow[];
   pumps: OwnedPump[];
@@ -89,7 +92,6 @@ type LogRow = {
 
 type LogKind = "diaper" | "feed" | "pump";
 
-const CARE_MS = DEFAULT_CARE_INTERVAL_MINUTES * 60 * 1000;
 const SOFT = "rounded-2xl bg-[#f3f5f3]";
 
 function isLocation(value: string): value is ChillerLocation {
@@ -216,7 +218,7 @@ export function HomeDashboard() {
     const babyRow = roster.find((baby) => baby.id === selectedId) ?? null;
     const viewBaby = selectedId ?? "00000000-0000-0000-0000-000000000000";
 
-    const [diaperLast, feedLast, pumpLast, recent, chillerRows, reminders] = await Promise.all([
+    const [diaperLast, feedLast, familyPump, scheduleRow, recent, chillerRows, reminders] = await Promise.all([
       supabase
         .from("logs")
         .select("occurred_at")
@@ -241,11 +243,15 @@ export function HomeDashboard() {
         .from("logs")
         .select("occurred_at")
         .eq("family_id", familyId)
-        .eq("baby_id", viewBaby)
         .eq("kind", "pump")
         .is("deleted_at", null)
         .order("occurred_at", { ascending: false })
         .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("families")
+        .select("pump_hours, pump_days, pump_schedule_timezone")
+        .eq("id", familyId)
         .maybeSingle(),
       supabase
         .from("logs")
@@ -280,7 +286,7 @@ export function HomeDashboard() {
 
     const lastDiaper = typeof diaperLast.data?.occurred_at === "string" ? diaperLast.data.occurred_at : null;
     const lastFeed = typeof feedLast.data?.occurred_at === "string" ? feedLast.data.occurred_at : null;
-    const lastPump = typeof pumpLast.data?.occurred_at === "string" ? pumpLast.data.occurred_at : null;
+    const schedule = scheduleRow.data;
 
     return {
       userId,
@@ -289,10 +295,12 @@ export function HomeDashboard() {
       baby: babyRow,
       diaperAt: lastDiaper ? plus(lastDiaper, diaperInterval * 60 * 1000) : reminderFor("diaper"),
       feedAt: lastFeed ? plus(lastFeed, interval * 60 * 1000) : reminderFor("feed"),
-      pumpAt: reminderFor("pump") ?? (lastPump ? plus(lastPump, CARE_MS) : null),
+      pumpHours: Array.isArray(schedule?.pump_hours) ? schedule.pump_hours.filter((hour) => typeof hour === "number") : [],
+      pumpDays: Array.isArray(schedule?.pump_days) ? schedule.pump_days.filter((day) => typeof day === "number") : [1, 2, 3, 4, 5, 6, 7],
+      pumpTimeZone: typeof schedule?.pump_schedule_timezone === "string" ? schedule.pump_schedule_timezone : "UTC",
+      lastFamilyPump: typeof familyPump.data?.occurred_at === "string" ? familyPump.data.occurred_at : null,
       diaperStart: lastDiaper,
       feedStart: lastFeed,
-      pumpStart: lastPump,
       logs: (recent.data ?? []).flatMap((row) => {
         const log = asLog(String(row.id), row as Record<string, unknown>);
         return log ? [log] : [];
@@ -324,10 +332,8 @@ export function HomeDashboard() {
   const baby = view?.baby ?? null;
   const diaperAt = view?.diaperAt ?? null;
   const feedAt = view?.feedAt ?? null;
-  const pumpAt = view?.pumpAt ?? null;
   const diaperStart = view?.diaperStart ?? null;
   const feedStart = view?.feedStart ?? null;
-  const pumpStart = view?.pumpStart ?? null;
   const chiller = view?.chiller ?? [];
   const logs = view?.logs ?? [];
   const pumps = view?.pumps ?? [];
@@ -368,16 +374,43 @@ export function HomeDashboard() {
 
   const age = baby ? ageLabel(baby.birthDate, locale, t) : null;
 
+  const queuedPumpAt = readQueue().reduce<string | null>((latest, item) => {
+    if (item.kind !== "log" || item.row.kind !== "pump" || typeof item.row.occurred_at !== "string") return latest;
+    if (!latest || item.row.occurred_at > latest) return item.row.occurred_at;
+    return latest;
+  }, null);
+  const lastFamilyPump =
+    queuedPumpAt && (!view?.lastFamilyPump || queuedPumpAt > view.lastFamilyPump) ? queuedPumpAt : view?.lastFamilyPump ?? null;
+  const pumpTimes =
+    now === null
+      ? null
+      : pumpCardTimes(
+          {
+            hours: view?.pumpHours ?? [],
+            days: view?.pumpDays ?? [],
+            timeZone: view?.pumpTimeZone ?? "UTC",
+          },
+          lastFamilyPump,
+          now,
+        );
   const cards: {
     key: QuickLogKind;
     icon: CareIconName;
     label: string;
     at: string | null;
     start: string | null;
+    href?: string;
   }[] = [
     { key: "diaper", icon: "diaper", label: t("home.diaper"), at: diaperAt, start: diaperStart },
     { key: "feed", icon: "feed", label: t("home.feed"), at: feedAt, start: feedStart },
-    { key: "pump", icon: "pump", label: t("home.pump"), at: pumpAt, start: pumpStart },
+    {
+      key: "pump",
+      icon: "pump",
+      label: t("home.pump"),
+      at: pumpTimes && !pumpTimes.unset ? pumpTimes.at : null,
+      start: pumpTimes && !pumpTimes.unset ? pumpTimes.start : null,
+      href: pumpTimes?.unset ? "/settings" : undefined,
+    },
   ];
 
   const closeLog = useCallback(() => setLog(null), []);
@@ -431,50 +464,66 @@ export function HomeDashboard() {
         <h2 className="text-base font-semibold tracking-tight">{t("home.nextUp")}</h2>
         <ul className="grid w-full grid-cols-3 items-stretch gap-2">
           {cards.map((card) => {
-            const line = countdownLine(card.at, now, t);
+            const line = card.href
+              ? { text: t("home.setSchedule"), overdue: false }
+              : countdownLine(card.at, now, t);
+            const className = `${SOFT} relative h-full min-h-[7.25rem] w-full min-w-0 flex-col items-center justify-center gap-1.5 overflow-hidden px-1.5 pt-7 pb-3 text-center whitespace-normal text-foreground ${
+              line.overdue ? "border border-danger" : ""
+            }`;
+            const body = (
+              <>
+                <Badge
+                  variant="danger"
+                  aria-hidden={line.overdue ? undefined : true}
+                  className={`absolute top-1.5 left-1/2 h-4 max-w-[calc(100%-0.75rem)] -translate-x-1/2 truncate px-1.5 py-0 text-[10px] leading-4 ${
+                    line.overdue ? "" : "invisible"
+                  }`}
+                >
+                  {t("home.overdueBadge")}
+                </Badge>
+                <CareIcon
+                  name={card.icon}
+                  className={`h-8 w-8 shrink-0 ${line.overdue ? "text-danger" : "text-accent"}`}
+                />
+                <span
+                  className={`w-full text-[11px] leading-tight font-semibold text-balance ${
+                    line.overdue ? "text-danger" : "text-foreground"
+                  }`}
+                >
+                  {line.text}
+                </span>
+                <span className={`text-xs font-medium ${line.overdue ? "text-danger" : "text-accent"}`}>
+                  {card.label}
+                </span>
+                {card.at && card.start ? (
+                  <ExpiryBar
+                    storedAt={card.start}
+                    expiresAt={card.at}
+                    now={now}
+                    label={t("home.timeUntilDue")}
+                  />
+                ) : null}
+              </>
+            );
             return (
               <li key={card.key} className="min-w-0">
+                {card.href ? (
+                  <Button asChild variant="ghost" className={className}>
+                    <Link href={card.href} aria-label={`${card.label}, ${line.text}`}>
+                      {body}
+                    </Link>
+                  </Button>
+                ) : (
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => setLog(card.key)}
                   aria-label={`${card.label}, ${line.text}`}
-                  className={`${SOFT} relative h-full min-h-[7.25rem] w-full min-w-0 flex-col items-center justify-center gap-1.5 overflow-hidden px-1.5 pt-7 pb-3 text-center whitespace-normal text-foreground ${
-                    line.overdue ? "border border-danger" : ""
-                  }`}
+                  className={className}
                 >
-                  <Badge
-                    variant="danger"
-                    aria-hidden={line.overdue ? undefined : true}
-                    className={`absolute top-1.5 left-1/2 h-4 max-w-[calc(100%-0.75rem)] -translate-x-1/2 truncate px-1.5 py-0 text-[10px] leading-4 ${
-                      line.overdue ? "" : "invisible"
-                    }`}
-                  >
-                    {t("home.overdueBadge")}
-                  </Badge>
-                  <CareIcon
-                    name={card.icon}
-                    className={`h-8 w-8 shrink-0 ${line.overdue ? "text-danger" : "text-accent"}`}
-                  />
-                  <span
-                    className={`w-full text-[11px] leading-tight font-semibold text-balance ${
-                      line.overdue ? "text-danger" : "text-foreground"
-                    }`}
-                  >
-                    {line.text}
-                  </span>
-                  <span className={`text-xs font-medium ${line.overdue ? "text-danger" : "text-accent"}`}>
-                    {card.label}
-                  </span>
-                  {card.at && card.start ? (
-                    <ExpiryBar
-                      storedAt={card.start}
-                      expiresAt={card.at}
-                      now={now}
-                      label={t("home.timeUntilDue")}
-                    />
-                  ) : null}
+                  {body}
                 </Button>
+                )}
               </li>
             );
           })}

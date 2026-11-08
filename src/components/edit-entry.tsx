@@ -4,10 +4,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DecimalInput } from "@/components/decimal-input";
 import { Input } from "@/components/ui/input";
 import { SavingLabel } from "@/components/saving-label";
 import { WhenField, useWhen } from "@/components/when-field";
 import { useI18n } from "@/i18n/provider";
+import { formatDecimal, parseDecimal } from "@/lib/decimal";
 import { milkExpiresAt } from "@/lib/storage-rules";
 import { createClient } from "@/lib/supabase/client";
 import type { ChillerLocation } from "@/lib/device-care";
@@ -64,11 +66,11 @@ function LogEditor({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { when, setWhen } = useWhen(entry.occurredAt);
-  const [amount, setAmount] = useState(entry.amountMl ? String(entry.amountMl) : "");
+  const [amount, setAmount] = useState(entry.amountMl ? formatDecimal(entry.amountMl, locale) : "");
   const [minutes, setMinutes] = useState(
-    entry.durationSeconds ? String(Math.max(1, Math.round(entry.durationSeconds / 60))) : "",
+    entry.durationSeconds ? formatDecimal(Math.max(1, Math.round(entry.durationSeconds / 60)), locale) : "",
   );
   const [pending, setPending] = useState<"save" | "delete" | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -79,8 +81,24 @@ function LogEditor({
     setPending("save");
     const supabase = createClient();
     const patch: Record<string, unknown> = { occurred_at: when.toISOString() };
-    if (showAmount && amount.trim()) patch.amount_ml = Math.round(Number(amount));
-    if (showMinutes && minutes.trim()) patch.duration_seconds = Math.round(Number(minutes) * 60);
+    const parsedAmount = parseDecimal(amount);
+    const parsedMinutes = parseDecimal(minutes);
+    if (showAmount && amount.trim()) {
+      if (parsedAmount === null) {
+        setPending(null);
+        toast(t("common.failed"));
+        return;
+      }
+      patch.amount_ml = Math.round(parsedAmount);
+    }
+    if (showMinutes && minutes.trim()) {
+      if (parsedMinutes === null) {
+        setPending(null);
+        toast(t("common.failed"));
+        return;
+      }
+      patch.duration_seconds = Math.round(parsedMinutes * 60);
+    }
     const { error } = await supabase.from("logs").update(patch).eq("id", entry.id).is("deleted_at", null);
     setPending(null);
     if (error) {
@@ -114,13 +132,13 @@ function LogEditor({
       {showAmount ? (
         <label className="flex flex-col gap-2 text-sm font-semibold">
           {t("feed.amount")}
-          <Input type="number" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} />
+          <DecimalInput locale={locale} value={amount} onValueChange={setAmount} />
         </label>
       ) : null}
       {showMinutes ? (
         <label className="flex flex-col gap-2 text-sm font-semibold">
           {t("dbf.duration")}
-          <Input type="number" inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} />
+          <DecimalInput locale={locale} value={minutes} onValueChange={setMinutes} />
         </label>
       ) : null}
       </div>
@@ -140,9 +158,9 @@ function ChillerEditor({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { when, setWhen } = useWhen(entry.storedAt);
-  const [volume, setVolume] = useState(entry.volumeMl ? String(entry.volumeMl) : "");
+  const [volume, setVolume] = useState(entry.volumeMl ? formatDecimal(entry.volumeMl, locale) : "");
   const [note, setNote] = useState(entry.note ?? "");
   const [pending, setPending] = useState<"save" | "delete" | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -154,13 +172,23 @@ function ChillerEditor({
       entry.type === "milk"
         ? milkExpiresAt(storedAt, entry.location)
         : new Date(storedAt.getTime() + washByHours * 60 * 60 * 1000);
+    let volumeMl: number | null = null;
+    if (entry.type === "milk" && volume.trim()) {
+      const parsed = parseDecimal(volume);
+      if (parsed === null) {
+        setPending(null);
+        toast(t("common.failed"));
+        return;
+      }
+      volumeMl = Math.round(parsed);
+    }
     const supabase = createClient();
     const { error } = await supabase
       .from("chiller_items")
       .update({
         stored_at: storedAt.toISOString(),
         expires_at: expiresAt.toISOString(),
-        volume_ml: entry.type === "milk" && volume.trim() ? Math.round(Number(volume)) : null,
+        volume_ml: volumeMl,
         note: entry.type === "milk" ? note.trim() || null : null,
       })
       .eq("id", entry.id)
@@ -197,7 +225,7 @@ function ChillerEditor({
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2 text-sm font-semibold">
             {t("feed.amount")}
-            <Input type="number" inputMode="decimal" value={volume} onChange={(event) => setVolume(event.target.value)} />
+            <DecimalInput locale={locale} value={volume} onValueChange={setVolume} />
           </label>
           <label className="flex flex-col gap-2 text-sm font-semibold">
             {t("chiller.note")}

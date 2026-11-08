@@ -31,7 +31,7 @@ export default function ShellCheckPage() {
           <DialogDescription className="sr-only">Add a baby</DialogDescription>
           <form className="flex flex-col gap-3 px-5 pb-6">
             <Input type="date" aria-label="Birth date" defaultValue="2024-01-02" />
-            <Input type="number" aria-label="Weight" defaultValue="3.4" />
+            <Input type="text" inputMode="decimal" aria-label="Weight" defaultValue="3.4" />
             <Select value={sex} onValueChange={setSex}>
               <SelectTrigger aria-label="Sex">
                 <SelectValue />

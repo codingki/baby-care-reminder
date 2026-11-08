@@ -6,6 +6,7 @@ import { SectionHeading } from "@/components/care-icon";
 import { BabySettings } from "@/components/baby-settings";
 import { LanguageSwitch } from "@/components/language-switch";
 import { MyPumps } from "@/components/my-pumps";
+import { PumpSchedule } from "@/components/pump-schedule";
 import { ReminderSettings } from "@/components/reminder-settings";
 import { SignOutButton } from "@/components/sign-out-button";
 import { WashByHours } from "@/components/wash-by-hours";
@@ -28,6 +29,7 @@ export default function SettingsPage() {
       <LanguageSwitch />
       <BabySettings />
       <MyPumps />
+      <PumpSchedule />
       <WashByHours />
       <p className="text-sm leading-6 text-muted">{t("settings.deviceNote")}</p>
       <Card className="gap-2 p-4">

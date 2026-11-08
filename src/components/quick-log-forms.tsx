@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CareIcon } from "@/components/care-icon";
+import { DecimalInput } from "@/components/decimal-input";
 import { MINUTE_PRESETS, PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
 import { SavingLabel } from "@/components/saving-label";
@@ -17,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { useSaveLock } from "@/components/use-save-lock";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
+import { parseDecimal } from "@/lib/decimal";
 import type { Locale } from "@/i18n/locales";
 import { loadFamilyContext } from "@/lib/family-context";
 import { saveChillerItem, saveLog } from "@/lib/save-log";
@@ -64,7 +66,7 @@ const field = "safe-x min-h-0 overflow-y-auto overscroll-contain pt-1 pb-4";
 const footer = "safe-x flex shrink-0 flex-col gap-2 border-t border-line bg-background pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]";
 
 export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const router = useRouter();
   const { pending, run } = useSaveLock();
   const [amount, setAmount] = useState("");
@@ -79,8 +81,8 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   }, []);
 
   async function save() {
-    const entered = Number(amount);
-    if (!Number.isFinite(entered) || entered <= 0) return;
+    const entered = parseDecimal(amount);
+    if (entered === null || entered <= 0) return;
     const ml = volumeToMl(entered, unit);
     setMessage(null);
     await run(async () => {
@@ -95,14 +97,7 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-ml">
             {unit === "oz" ? t("feed.ounces") : t("feed.amount")}
-            <Input
-              id="feed-ml"
-              type="number"
-              inputMode="decimal"
-              min={1}
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-            />
+          <DecimalInput locale={locale} id="feed-ml" value={amount} onValueChange={setAmount} />
           </label>
           <PresetChips values={volumePresets(unit)} onPick={(value) => setAmount(String(value))} />
         </div>
@@ -121,15 +116,15 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 const sides = ["left", "right"] as const;
 
 export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const router = useRouter();
   const { pending, run } = useSaveLock();
   const [side, setSide] = useState<(typeof sides)[number] | null>(null);
   const { when, setWhen } = useWhen();
   const [minutes, setMinutes] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const length = Number(minutes);
-  const ready = side !== null && Number.isFinite(length) && length > 0;
+  const length = parseDecimal(minutes);
+  const ready = side !== null && length !== null && length > 0;
 
   async function save() {
     if (!ready || !side) return;
@@ -172,14 +167,7 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
         </div>
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="dbf-minutes">
           {t("dbf.duration")}
-          <Input
-            id="dbf-minutes"
-            type="number"
-            inputMode="decimal"
-            min={1}
-            value={minutes}
-            onChange={(event) => setMinutes(event.target.value)}
-          />
+          <DecimalInput locale={locale} id="dbf-minutes" value={minutes} onValueChange={setMinutes} />
         </label>
         <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
         </div>
@@ -370,15 +358,15 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
 }
 
 export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const router = useRouter();
   const { pending, run } = useSaveLock();
   const [kg, setKg] = useState("");
   const [date, setDate] = useState(todayInput);
   const { when, setWhen } = useWhen();
   const [message, setMessage] = useState<string | null>(null);
-  const parsed = Number(kg);
-  const ready = Number.isFinite(parsed) && parsed > 0 && date.length > 0;
+  const parsed = parseDecimal(kg);
+  const ready = parsed !== null && parsed > 0 && date.length > 0;
 
   async function save() {
     if (!ready) return;
@@ -395,7 +383,7 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
         baby_id: context.babyId,
         family_id: context.familyId,
         logged_by: context.userId,
-        weight_grams: Math.round(parsed * 1000),
+        weight_grams: Math.round((parsed ?? 0) * 1000),
         weighed_on: toWhenInput(when).slice(0, 10),
       });
       if (error) {
@@ -413,15 +401,7 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-kg">
             {t("weight.kg")}
-            <Input
-              id="weight-kg"
-              type="number"
-              inputMode="decimal"
-              min={0.01}
-              step={0.01}
-              value={kg}
-              onChange={(event) => setKg(event.target.value)}
-            />
+          <DecimalInput locale={locale} id="weight-kg" value={kg} onValueChange={setKg} />
           </label>
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-date">
             {t("weight.date")}
@@ -491,11 +471,11 @@ export function PumpLog({
   const activePumpId = pumpId && care.pumps.some((pump) => pump.id === pumpId) ? pumpId : onlyPumpId;
   const selectedPump = care.pumps.find((pump) => pump.id === activePumpId) ?? null;
   const partsTime = formatWhen(partsExpiresAt(new Date(), care.washByHours).toISOString(), locale);
-  const pumpedAmount = Number(pumpedMl);
+  const pumpedAmount = parseDecimal(pumpedMl);
   const minutesBlank = minutes.trim() === "";
-  const sessionMinutes = Number(minutes);
-  const minutesOk = minutesBlank || (Number.isFinite(sessionMinutes) && sessionMinutes > 0);
-  const canLog = Number.isFinite(pumpedAmount) && pumpedAmount > 0 && minutesOk && Boolean(selectedPump);
+  const sessionMinutes = parseDecimal(minutes);
+  const minutesOk = minutesBlank || (sessionMinutes !== null && sessionMinutes > 0);
+  const canLog = pumpedAmount !== null && pumpedAmount > 0 && minutesOk && Boolean(selectedPump);
   const canConfirm = (storeParts && Boolean(selectedPump)) || saveMilk;
 
   async function confirm() {
@@ -504,8 +484,8 @@ export function PumpLog({
     setPending("chiller");
     setStatus(null);
     try {
-      const parsed = volume.trim() === "" ? null : Number(volume);
-      const volumeMl = parsed !== null && Number.isFinite(parsed) && parsed > 0 ? volumeToMl(parsed, unit) : null;
+      const parsed = volume.trim() === "" ? null : parseDecimal(volume);
+      const volumeMl = parsed !== null && parsed > 0 ? volumeToMl(parsed, unit) : null;
       const context = await loadFamilyContext();
       const washByHours = context?.washByHours ?? care.washByHours;
       if (storeParts && selectedPump) {
@@ -527,7 +507,7 @@ export function PumpLog({
         const saved = await saveChillerItem({
           type: "milk",
           location: milkLocation,
-          volumeMl: volumeMl ?? volumeToMl(pumpedAmount, unit),
+          volumeMl: volumeMl ?? (pumpedAmount !== null ? volumeToMl(pumpedAmount, unit) : null),
           pumpId: null,
           washByHours,
           babyId: null,
@@ -552,10 +532,11 @@ export function PumpLog({
     setPending("log");
     setStatus(null);
     try {
-      const minutesValue = minutes.trim() === "" ? null : Math.round(Number(minutes) * 60);
+      const minutesValue =
+        minutes.trim() === "" || sessionMinutes === null ? null : Math.round(sessionMinutes * 60);
       const result = await saveLog({
         kind: "pump",
-        amountMl: volumeToMl(pumpedAmount, unit),
+        amountMl: volumeToMl(pumpedAmount ?? 0, unit),
         durationSeconds: minutesValue && minutesValue > 0 ? minutesValue : null,
         pumpId: selectedPump.id,
         occurredAt: when.toISOString(),
@@ -585,26 +566,12 @@ export function PumpLog({
         <div className="flex flex-col gap-4">
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pumped-ml">
           {t("pump.amount")}
-          <Input
-            id="pumped-ml"
-            type="number"
-            inputMode="decimal"
-            min={1}
-            value={pumpedMl}
-            onChange={(event) => setPumpedMl(event.target.value)}
-          />
+          <DecimalInput locale={locale} id="pumped-ml" value={pumpedMl} onValueChange={setPumpedMl} />
         </label>
         <PresetChips values={volumePresets(unit)} onPick={(value) => setPumpedMl(String(value))} />
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pump-minutes">
           {t("pump.duration")}
-          <Input
-            id="pump-minutes"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={minutes}
-            onChange={(event) => setMinutes(event.target.value)}
-          />
+          <DecimalInput locale={locale} id="pump-minutes" value={minutes} onValueChange={setMinutes} />
         </label>
         <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
         {care.pumps.length === 0 ? (
@@ -650,14 +617,7 @@ export function PumpLog({
               <div className="flex flex-col gap-3">
                 <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="milk-ml">
                   {t("pump.milkAmount")}
-                  <Input
-                    id="milk-ml"
-                    type="number"
-                    inputMode="decimal"
-                    min={1}
-                    value={volume}
-                    onChange={(event) => setVolume(event.target.value)}
-                  />
+                  <DecimalInput locale={locale} id="milk-ml" value={volume} onValueChange={setVolume} />
                 </label>
                 <PresetChips values={volumePresets(unit)} onPick={(value) => setVolume(String(value))} />
                 <p className="text-sm text-muted">{t("pump.milkOptional")}</p>

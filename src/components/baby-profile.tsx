@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { useI18n } from "@/i18n/provider";
 import type { Locale } from "@/i18n/locales";
 import { focusBaby, scopedKey, scopeFromKey, useScope, type CareScope } from "@/lib/care-queries";
+import { formatDecimal } from "@/lib/decimal";
 import { createClient } from "@/lib/supabase/client";
 
 type WeightRow = {
@@ -30,8 +31,9 @@ type ProfileData = {
   babies: BabyCard[];
 };
 
-function formatKg(grams: number) {
-  return (grams / 1000).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+function formatKg(grams: number, locale: Locale) {
+  const kilos = Number((grams / 1000).toFixed(2).replace(/0+$/, "").replace(/\.$/, ""));
+  return formatDecimal(kilos, locale);
 }
 
 function formatDate(value: string, locale: Locale) {
@@ -186,7 +188,7 @@ export function BabyProfile() {
             <p className="text-base font-semibold">
               {t("weight.latest")}
               {" · "}
-              {latest ? t("weight.kgValue", { kg: formatKg(latest.grams) }) : t("weight.empty")}
+              {latest ? t("weight.kgValue", { kg: formatKg(latest.grams, locale) }) : t("weight.empty")}
             </p>
             {baby.weights.length > 0 ? (
               <>
@@ -195,7 +197,7 @@ export function BabyProfile() {
                   {baby.weights.map((row) => (
                     <li key={row.id} className="flex items-baseline justify-between gap-3 text-sm">
                       <span>{formatDate(row.on, locale)}</span>
-                      <span className="font-semibold">{t("weight.kgValue", { kg: formatKg(row.grams) })}</span>
+                      <span className="font-semibold">{t("weight.kgValue", { kg: formatKg(row.grams, locale) })}</span>
                     </li>
                   ))}
                 </ul>

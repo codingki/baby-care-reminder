@@ -88,7 +88,7 @@ Deno.serve(async (request) => {
       supabase
         .from("reminders")
         .select("id, family_id, baby_id, reminder_type, audience")
-        // next_due_at is set when a log is saved. Feeds use suggested_interval_minutes, or 120 when null.
+        // Diaper and feed due times move when a log is saved. Pump due times follow the family schedule.
         .lte("next_due_at", nowIso)
         .eq("enabled", true)
         .is("notified_at", null)
@@ -152,6 +152,7 @@ Deno.serve(async (request) => {
   const settingRows = (settings ?? []) as Settings[];
   const subscriptionRows = (subscriptions ?? []) as Subscription[];
   const sentReminderIds: string[] = [];
+  const sentPumpIds: string[] = [];
   const sentMilkIds: string[] = [];
   let sent = 0;
   let held = 0;
@@ -200,10 +201,13 @@ Deno.serve(async (request) => {
     }
 
     if (delivered) {
-      if (item.table === "reminders") sentReminderIds.push(item.id);
+      if (item.table === "reminders" && item.kind === "pump") sentPumpIds.push(item.id);
+      else if (item.table === "reminders") sentReminderIds.push(item.id);
       else sentMilkIds.push(item.id);
     } else if (waiting) {
       held += 1;
+    } else if (item.table === "reminders" && item.kind === "pump") {
+      sentPumpIds.push(item.id);
     } else if (item.table === "reminders") {
       sentReminderIds.push(item.id);
     } else {
@@ -213,6 +217,10 @@ Deno.serve(async (request) => {
 
   if (sentReminderIds.length > 0) {
     const { error } = await supabase.from("reminders").update({ notified_at: nowIso }).in("id", sentReminderIds);
+    if (error) return new Response(error.message, { status: 500 });
+  }
+  if (sentPumpIds.length > 0) {
+    const { error } = await supabase.rpc("advance_pump_reminders", { reminder_ids: sentPumpIds });
     if (error) return new Response(error.message, { status: 500 });
   }
   if (sentMilkIds.length > 0) {

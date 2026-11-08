@@ -5,9 +5,11 @@ import { toast } from "sonner";
 import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
+import { DecimalInput } from "@/components/decimal-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n/provider";
+import { parseDecimal } from "@/lib/decimal";
 import { useQueryClient } from "@tanstack/react-query";
 import { CARE_SCOPE_KEY, type CareScope } from "@/lib/care-queries";
 import { rememberBaby } from "@/lib/selected-baby";
@@ -38,7 +40,7 @@ export function AddBabyForm({
   idPrefix: string;
   onCreated: (baby: { id: string; name: string }) => void;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
@@ -53,9 +55,16 @@ export function AddBabyForm({
     const birthInput = form.querySelector<HTMLInputElement>("input[type='date']");
     const birth = normalizeBirthDate(birthInput?.value || birthDate);
     const kgText = weightKg.trim();
-    const kg = kgText === "" ? null : Number(kgText);
-    const minutes = feedMinutes.trim() === "" ? null : Math.round(Number(feedMinutes));
-    if (!familyId || !name.trim() || !birth || (kg !== null && (!Number.isFinite(kg) || kg <= 0)) || (minutes !== null && minutes <= 0)) {
+    const kg = kgText === "" ? null : parseDecimal(kgText);
+    const minutesParsed = feedMinutes.trim() === "" ? null : parseDecimal(feedMinutes);
+    const minutes = minutesParsed === null ? null : Math.round(minutesParsed);
+    if (
+      !familyId ||
+      !name.trim() ||
+      !birth ||
+      (kgText !== "" && (kg === null || kg <= 0)) ||
+      (feedMinutes.trim() !== "" && (minutes === null || minutes <= 0))
+    ) {
       setError(t("onboarding.error"));
       toast(t("onboarding.error"));
       return;
@@ -133,26 +142,20 @@ export function AddBabyForm({
       </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-weight`}>
         {t("onboarding.weightKg")}
-        <Input
+        <DecimalInput
+          locale={locale}
           id={`${idPrefix}-weight`}
-          type="number"
-          inputMode="decimal"
-          min={0.1}
-          step={0.01}
           value={weightKg}
-          onChange={(event) => setWeightKg(event.target.value)}
+          onValueChange={setWeightKg}
         />
       </label>
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-feed`}>
         {t("settings.feedInterval")}
-        <Input
+        <DecimalInput
+          locale={locale}
           id={`${idPrefix}-feed`}
-          type="number"
-          inputMode="numeric"
-          min={1}
-          step={1}
           value={feedMinutes}
-          onChange={(event) => setFeedMinutes(event.target.value)}
+          onValueChange={setFeedMinutes}
         />
         <PresetChips values={MINUTE_PRESETS} onPick={(value) => setFeedMinutes(String(value))} />
       </label>

@@ -7,9 +7,11 @@ import { MINUTE_PRESETS, PresetChips } from "@/components/preset-chips";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DecimalInput } from "@/components/decimal-input";
 import { Input } from "@/components/ui/input";
 import { useSaveLock } from "@/components/use-save-lock";
 import { useI18n } from "@/i18n/provider";
+import { formatDecimal, parseDecimal } from "@/lib/decimal";
 import {
   DEFAULT_DIAPER_INTERVAL_MINUTES,
   DEFAULT_FEED_INTERVAL_MINUTES,
@@ -20,7 +22,7 @@ import { loadFamilyContext } from "@/lib/family-context";
 import { createClient } from "@/lib/supabase/client";
 
 export function BabySettings() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { pending, run } = useSaveLock();
   const [babyId, setBabyId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -46,34 +48,36 @@ export function BabySettings() {
         setBabyId(String(data.id));
         setName(data.name);
         setMinutes(
-          String(
+          formatDecimal(
             feedIntervalMinutes(
               typeof data.suggested_interval_minutes === "number" ? data.suggested_interval_minutes : null,
             ),
+            locale,
           ),
         );
         setDiaperMinutes(
-          String(
+          formatDecimal(
             diaperIntervalMinutes(
               typeof data.diaper_interval_minutes === "number" ? data.diaper_interval_minutes : null,
             ),
+            locale,
           ),
         );
       }
       setReady(true);
     })();
-  }, []);
+  }, [locale]);
 
   async function save() {
     const trimmed = name.trim();
-    const parsed = Number(minutes);
-    const parsedDiaper = Number(diaperMinutes);
+    const parsed = parseDecimal(minutes);
+    const parsedDiaper = parseDecimal(diaperMinutes);
     if (
       !babyId ||
       !trimmed ||
-      !Number.isFinite(parsed) ||
+      parsed === null ||
       parsed <= 0 ||
-      !Number.isFinite(parsedDiaper) ||
+      parsedDiaper === null ||
       parsedDiaper <= 0
     ) {
       setNote(t("common.failed"));
@@ -178,30 +182,24 @@ export function BabySettings() {
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-interval">
               {t("settings.feedInterval")}
-              <Input
+              <DecimalInput
+                locale={locale}
                 id="feed-interval"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
                 required
                 value={minutes}
-                onChange={(event) => setMinutes(event.target.value)}
+                onValueChange={setMinutes}
                 className="bg-background px-3"
               />
               <PresetChips values={MINUTE_PRESETS} onPick={(value) => setMinutes(String(value))} />
             </label>
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="diaper-interval">
               {t("settings.diaperInterval")}
-              <Input
+              <DecimalInput
+                locale={locale}
                 id="diaper-interval"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
                 required
                 value={diaperMinutes}
-                onChange={(event) => setDiaperMinutes(event.target.value)}
+                onValueChange={setDiaperMinutes}
                 className="bg-background px-3"
               />
               <PresetChips values={MINUTE_PRESETS} onPick={(value) => setDiaperMinutes(String(value))} />
