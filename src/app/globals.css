@@ -100,7 +100,7 @@ textarea,
 select {
   font-size: 16px;
   scroll-margin-top: 4.5rem;
-  scroll-margin-bottom: 6rem;
+  scroll-margin-bottom: calc(6rem + var(--page-kb, 0px));
 }
 
 input[type="date"],
@@ -155,9 +155,13 @@ input[type="month"]::-webkit-datetime-edit-fields-wrapper {
   text-align: left;
 }
 
+#app-frame [data-slot="dialog-content"] {
+  bottom: var(--kb, 0px);
+}
+
 [data-slot="dialog-panel"] {
   height: auto;
-  max-height: calc(var(--sheet-vh, 100dvh) - 2rem);
+  max-height: calc(var(--vvh, 100dvh) - 16px);
 }
 
 [data-slot="dialog-header"],
@@ -178,6 +182,8 @@ input[type="month"]::-webkit-datetime-edit-fields-wrapper {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  scroll-padding-top: 0.75rem;
+  scroll-padding-bottom: 1.25rem;
 }
 
 [data-slot="dialog-footer"] {

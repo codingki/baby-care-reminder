@@ -115,7 +115,7 @@ function DialogContent({
         <div
           ref={panel}
           data-slot="dialog-panel"
-          className="pointer-events-auto relative z-10 flex h-auto max-h-[calc(var(--sheet-vh,100dvh)-2rem)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-w-md sm:rounded-3xl"
+          className="pointer-events-auto relative z-10 flex h-auto max-h-[calc(var(--vvh,100dvh)-16px)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-w-md sm:rounded-3xl"
           onPointerDown={(event) => {
             if (event.button !== 0) return;
             const target = event.target;

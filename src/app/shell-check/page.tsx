@@ -30,6 +30,11 @@ export default function ShellCheckPage() {
         <Button type="button" onClick={() => setLongOpen(true)}>
           Store milk
         </Button>
+        <div className="h-[70vh]" />
+        <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="shell-name">
+          Your name
+          <Input id="shell-name" aria-label="Your name" defaultValue="Kiki" />
+        </label>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent showCloseButton={false}>

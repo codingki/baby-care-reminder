@@ -186,6 +186,84 @@ test("long sheets keep the footer visible and scroll inside", async ({ page }) =
   }
 });
 
+async function showKeyboard(page: import("@playwright/test").Page, height = 470) {
+  await page.evaluate((nextHeight) => {
+    const viewport = window.visualViewport;
+    if (!viewport) throw new Error("missing visualViewport");
+    Object.defineProperty(viewport, "height", { configurable: true, get: () => nextHeight });
+    Object.defineProperty(viewport, "offsetTop", { configurable: true, get: () => 0 });
+    viewport.dispatchEvent(new Event("resize"));
+  }, height);
+  await page.waitForTimeout(350);
+}
+
+test("focused fields stay above a simulated keyboard", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/shell-check");
+
+  await page.getByRole("button", { name: "Store milk" }).click();
+  const panel = page.locator("[data-slot='dialog-panel']");
+  await expect
+    .poll(async () => panel.evaluate((node) => node.getBoundingClientRect().bottom))
+    .toBeLessThanOrEqual(845);
+  await page.getByLabel("Note").focus();
+  await showKeyboard(page);
+  const note = await fieldMetrics(page, "Note");
+  expect(note.top).toBeGreaterThanOrEqual(note.visibleTop - 1);
+  expect(note.bottom).toBeLessThanOrEqual(note.visibleBottom + 1);
+  expect(note.bottom - note.top).toBeGreaterThan(20);
+  const save = await fieldMetrics(page, "Save", "button");
+  expect(save.bottom).toBeLessThanOrEqual(save.visibleBottom + 1);
+  expect(note.frameH).toBeGreaterThan(800);
+
+  await page.locator("[data-slot=dialog-backdrop]").click({ position: { x: 12, y: 12 } });
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect.poll(async () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--kb").trim())).toBe("0px");
+
+  await page.getByRole("button", { name: "Add baby" }).click();
+  await page.getByLabel("Weight").focus();
+  await showKeyboard(page);
+  const weight = await fieldMetrics(page, "Weight");
+  expect(weight.top).toBeGreaterThanOrEqual(weight.visibleTop - 1);
+  expect(weight.bottom).toBeLessThanOrEqual(weight.visibleBottom + 1);
+
+  await page.locator("[data-slot=dialog-backdrop]").click({ position: { x: 12, y: 12 } });
+  await expect(page.getByRole("dialog")).toBeHidden();
+
+  await page.getByLabel("Your name").focus();
+  await showKeyboard(page);
+  const name = await fieldMetrics(page, "Your name");
+  expect(name.top).toBeGreaterThanOrEqual(name.visibleTop - 1);
+  expect(name.bottom).toBeLessThanOrEqual(name.visibleBottom + 1);
+  const nav = await page.getByRole("navigation").boundingBox();
+  expect(nav).not.toBeNull();
+  expect(Math.abs(nav!.y + nav!.height - 844)).toBeLessThanOrEqual(2);
+});
+
+function fieldMetrics(page: import("@playwright/test").Page, label: string, tag = "input") {
+  return page.evaluate(
+    ({ label, tag }) => {
+      const field =
+        tag === "button"
+          ? [...document.querySelectorAll("button")].find((button) => button.textContent === label)
+          : document.querySelector(`${tag}[aria-label="${label}"]`);
+      if (!(field instanceof HTMLElement)) return { top: -1, bottom: -1, visibleTop: 0, visibleBottom: 0, frameH: 0 };
+      const viewport = window.visualViewport;
+      const height = viewport?.height ?? window.innerHeight;
+      const offsetTop = viewport?.offsetTop ?? 0;
+      const rect = field.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        visibleTop: offsetTop,
+        visibleBottom: offsetTop + height,
+        frameH: document.getElementById("app-frame")?.getBoundingClientRect().height ?? 0,
+      };
+    },
+    { label, tag },
+  );
+}
+
 test("backdrop closes the dialog and inside controls do not", async ({ page }) => {
   await page.goto("/shell-check");
   await page.getByRole("button", { name: "Add baby" }).click();
