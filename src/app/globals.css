@@ -107,35 +107,81 @@ input[type="date"],
 input[type="datetime-local"],
 input[type="time"],
 input[type="month"] {
-  display: block;
+  display: flex;
+  align-items: center;
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  height: 3rem;
-  min-height: 3rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
   padding: 0 1rem;
   -webkit-appearance: none;
   appearance: none;
   text-align: left;
+  line-height: 1.5;
 }
 
 input[type="date"]::-webkit-date-and-time-value,
 input[type="datetime-local"]::-webkit-date-and-time-value,
 input[type="time"]::-webkit-date-and-time-value,
 input[type="month"]::-webkit-date-and-time-value {
+  margin: 0;
   min-height: 1.5em;
+  line-height: 1.5;
   text-align: left;
 }
 
 input[type="date"]::-webkit-datetime-edit,
 input[type="datetime-local"]::-webkit-datetime-edit,
 input[type="time"]::-webkit-datetime-edit,
+input[type="month"]::-webkit-datetime-edit {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  line-height: 1.5;
+  text-align: left;
+}
+
 input[type="date"]::-webkit-datetime-edit-fields-wrapper,
-input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper,
+input[type="time"]::-webkit-datetime-edit-fields-wrapper,
+input[type="month"]::-webkit-datetime-edit-fields-wrapper {
+  display: flex;
+  align-items: center;
   min-width: 0;
   padding: 0;
   text-align: left;
+}
+
+[data-slot="dialog-panel"] {
+  height: auto;
+  max-height: calc(var(--sheet-vh, 100dvh) - 2rem);
+}
+
+[data-slot="dialog-header"],
+[data-slot="dialog-footer"],
+[data-slot="dialog-handle"] {
+  flex-shrink: 0;
+}
+
+[data-slot="dialog-header"],
+[data-slot="dialog-handle"] {
+  touch-action: none;
+}
+
+[data-slot="dialog-scroll"] {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+[data-slot="dialog-footer"] {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 label:has(input[type="date"]),

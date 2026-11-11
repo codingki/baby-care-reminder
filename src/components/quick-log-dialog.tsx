@@ -56,7 +56,7 @@ export function QuickLogDialog({
       >
         {meta && kind ? (
           <>
-            <div className="safe-x flex shrink-0 items-center justify-between gap-3 pt-4 pb-2">
+            <div data-slot="dialog-header" className="safe-x flex shrink-0 items-center justify-between gap-3 pt-4 pb-2">
               <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
                 <CareIcon name={meta.icon} className="h-5 w-5 text-accent" />
                 {babyName ? `${t(meta.title)} · ${babyName}` : t(meta.title)}

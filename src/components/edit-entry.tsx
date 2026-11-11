@@ -353,11 +353,13 @@ function EditorFrame({
 }) {
   const { t } = useI18n();
   return (
-    <div className="flex max-h-[inherit] flex-col">
-      <DialogTitle className="safe-x pt-2 text-lg font-semibold">{title}</DialogTitle>
+    <div className="flex min-h-0 w-full flex-col overflow-hidden">
+      <div data-slot="dialog-header" className="safe-x shrink-0 pt-2">
+        <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
+      </div>
       <DialogDescription className="sr-only">{title}</DialogDescription>
-      <div className="safe-x flex min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-auto py-3">{children}</div>
-      <div className="safe-x flex flex-col gap-2 border-t border-line py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div data-slot="dialog-scroll" data-vaul-no-drag className="safe-x flex min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-auto overscroll-contain py-3">{children}</div>
+      <div data-slot="dialog-footer" className="safe-x flex shrink-0 flex-col gap-2 border-t border-line bg-background pt-3">
         {confirm ? (
           <>
             <p className="text-sm">{t("edit.deleteConfirm")}</p>

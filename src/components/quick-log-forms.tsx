@@ -63,7 +63,7 @@ async function finishLog(
 }
 
 const field = "safe-x min-h-0 w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto overscroll-contain pt-1 pb-4";
-const footer = "safe-x flex shrink-0 flex-col gap-2 border-t border-line bg-background pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]";
+const footer = "safe-x flex shrink-0 flex-col gap-2 border-t border-line bg-background pt-3";
 
 export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
   const { locale, t } = useI18n();
@@ -93,7 +93,7 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
   return (
     <>
-      <div className={field}>
+      <div data-slot="dialog-scroll" data-vaul-no-drag className={field}>
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="feed-ml">
             {unit === "oz" ? t("feed.ounces") : t("feed.amount")}
@@ -103,7 +103,7 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         </div>
         <WhenField when={when} onChange={setWhen} />
       </div>
-      <div className={footer}>
+      <div data-slot="dialog-footer" className={footer}>
         {message ? <p role="status">{message}</p> : null}
         <Button type="button" onClick={() => void save()} disabled={pending} aria-busy={pending}>
           {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
@@ -143,7 +143,7 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 
   return (
     <>
-      <div className={field}>
+      <div data-slot="dialog-scroll" data-vaul-no-drag className={field}>
         <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">{t("dbf.side")}</p>
@@ -173,7 +173,7 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
         </div>
         <WhenField when={when} onChange={setWhen} />
       </div>
-      <div className={footer}>
+      <div data-slot="dialog-footer" className={footer}>
         {message ? <p role="status">{message}</p> : null}
         <Button type="button" onClick={() => void save()} disabled={pending || !ready} aria-busy={pending}>
           {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
@@ -239,7 +239,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   return (
     <>
-      <div className={field}>
+      <div data-slot="dialog-scroll" data-vaul-no-drag className={field}>
         {kind === null || kind === "wet" ? (
           <div className="grid grid-cols-1 gap-3">
             {diaperChoices.map((choice) => (
@@ -346,7 +346,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
         <WhenField when={when} onChange={setWhen} />
       </div>
       {detailed ? (
-        <div className={footer}>
+        <div data-slot="dialog-footer" className={footer}>
           {message ? <p role="status">{message}</p> : null}
           <Button type="submit" form="diaper-form" disabled={pending} aria-busy={pending}>
             {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
@@ -397,7 +397,7 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   return (
     <>
-      <div className={field}>
+      <div data-slot="dialog-scroll" data-vaul-no-drag className={field}>
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="weight-kg">
             {t("weight.kg")}
@@ -416,7 +416,7 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
         </div>
         <WhenField when={when} onChange={setWhen} />
       </div>
-      <div className={footer}>
+      <div data-slot="dialog-footer" className={footer}>
         {message ? <p role="status">{message}</p> : null}
         <Button type="button" onClick={() => void save()} disabled={pending || !ready} aria-busy={pending}>
           {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
@@ -562,7 +562,7 @@ export function PumpLog({
 
   return (
     <>
-      <div className={field}>
+      <div data-slot="dialog-scroll" data-vaul-no-drag className={field}>
         <div className="flex flex-col gap-4">
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pumped-ml">
           {t("pump.amount")}
@@ -638,7 +638,7 @@ export function PumpLog({
         </div>
         <WhenField when={when} onChange={setWhen} />
       </div>
-      <div className={footer}>
+      <div data-slot="dialog-footer" className={footer}>
         {status ? <p role="status">{status}</p> : null}
         {logged ? (
           <Button type="button" onClick={() => void confirm()} disabled={!canConfirm || pending !== null} aria-busy={pending === "chiller"}>

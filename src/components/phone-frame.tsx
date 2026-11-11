@@ -10,11 +10,21 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const frame = ref.current;
     const viewport = window.visualViewport;
-    const release = () => {
-      if (frame) {
-        frame.style.height = "";
+    const place = () => {
+      if (!frame || !viewport) return;
+      const offset = Math.max(0, viewport.offsetTop);
+      const shorter = viewport.height < window.innerHeight - 1 || offset > 0;
+      if (shorter) {
+        frame.style.top = `${offset}px`;
+        frame.style.height = `${viewport.height}px`;
+        frame.style.setProperty("--sheet-vh", `${viewport.height}px`);
+      } else {
         frame.style.top = "";
+        frame.style.height = "";
+        frame.style.removeProperty("--sheet-vh");
       }
+    };
+    const unlockBody = () => {
       if (document.querySelector("[data-slot='dialog-content'][data-state='open']")) return;
       const body = document.body;
       body.style.removeProperty("overflow");
@@ -26,23 +36,17 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
       body.style.removeProperty("padding-right");
       body.removeAttribute("data-scroll-locked");
     };
-    const onBlur = (event: FocusEvent) => {
-      if (!isField(event.target)) return;
-      window.setTimeout(release, 50);
-      window.setTimeout(release, 350);
-    };
-    document.addEventListener("focusout", onBlur);
-    viewport?.addEventListener("resize", release);
-    return () => {
-      document.removeEventListener("focusout", onBlur);
-      viewport?.removeEventListener("resize", release);
-    };
-  }, []);
-
-  useEffect(() => {
     const scrollActive = () => {
       const active = document.activeElement;
       if (!isField(active)) return;
+      const scroller = active.closest("[data-slot='dialog-scroll']");
+      if (scroller instanceof HTMLElement) {
+        const field = active.getBoundingClientRect();
+        const box = scroller.getBoundingClientRect();
+        const delta = field.top - box.top - scroller.clientHeight / 2 + field.height / 2;
+        scroller.scrollTop += delta;
+        return;
+      }
       active.scrollIntoView({ block: "center", inline: "nearest" });
     };
     const onFocus = (event: FocusEvent) => {
@@ -50,11 +54,25 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
       window.setTimeout(scrollActive, 50);
       window.setTimeout(scrollActive, 320);
     };
+    const onBlur = (event: FocusEvent) => {
+      if (!isField(event.target)) return;
+      window.setTimeout(() => {
+        unlockBody();
+        place();
+      }, 50);
+    };
+    place();
     document.addEventListener("focusin", onFocus);
-    window.visualViewport?.addEventListener("resize", scrollActive);
+    document.addEventListener("focusout", onBlur);
+    viewport?.addEventListener("resize", place);
+    viewport?.addEventListener("resize", scrollActive);
+    viewport?.addEventListener("scroll", place);
     return () => {
       document.removeEventListener("focusin", onFocus);
-      window.visualViewport?.removeEventListener("resize", scrollActive);
+      document.removeEventListener("focusout", onBlur);
+      viewport?.removeEventListener("resize", place);
+      viewport?.removeEventListener("resize", scrollActive);
+      viewport?.removeEventListener("scroll", place);
     };
   }, []);
 

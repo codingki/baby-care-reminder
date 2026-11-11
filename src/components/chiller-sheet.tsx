@@ -127,7 +127,7 @@ export function ChillerSheet({
 
   return (
     <>
-        <div className="safe-x min-h-0 overflow-y-auto overscroll-contain pt-1 pb-4">
+        <div data-slot="dialog-scroll" data-vaul-no-drag className="safe-x min-h-0 overflow-y-auto overscroll-contain pt-1 pb-4">
 
         {step === "choose" ? (
           <div className="flex flex-col gap-3">
@@ -276,7 +276,7 @@ export function ChillerSheet({
         ) : null}
         </div>
         {step === "milk" || step === "parts" ? (
-          <div className="safe-x shrink-0 border-t border-line bg-background pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div data-slot="dialog-footer" className="safe-x shrink-0 border-t border-line bg-background pt-3">
             {status ? (
               <p role="status" className="pb-2 text-sm">
                 {status}

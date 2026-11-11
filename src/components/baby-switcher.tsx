@@ -89,7 +89,7 @@ export function BabySwitcher({
         }}
       >
         <DialogContent showCloseButton={false} onCloseAutoFocus={(event) => event.preventDefault()}>
-          <div className="safe-x flex shrink-0 items-center justify-between gap-3 pt-4 pb-2">
+          <div data-slot="dialog-header" className="safe-x flex shrink-0 items-center justify-between gap-3 pt-4 pb-2">
             <DialogTitle className="text-lg font-semibold">{t("home.switchBaby")}</DialogTitle>
             <Button
               type="button"
@@ -103,7 +103,7 @@ export function BabySwitcher({
             </Button>
           </div>
           <DialogDescription className="sr-only">{t("home.addBaby")}</DialogDescription>
-          <div className="safe-x flex max-h-80 flex-col gap-2 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div data-slot="dialog-scroll" data-vaul-no-drag className="safe-x flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
             {babies.map((baby) => (
               <Button
                 key={baby.id}

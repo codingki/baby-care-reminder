@@ -5,6 +5,7 @@ import { cn } from "cn"
 import { Dialog as DialogPrimitive } from "radix-ui"
 import { appFrameElement } from "@/components/ui/use-app-frame"
 
+import { useSheetPresence } from "@/components/sheet-presence"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
@@ -64,6 +65,11 @@ function DialogOverlay({
   )
 }
 
+function MarkSheetOpen() {
+  useSheetPresence(true);
+  return null;
+}
+
 function DialogContent({
   className,
   children,
@@ -76,7 +82,7 @@ function DialogContent({
 }) {
   const panel = React.useRef<HTMLDivElement>(null);
   const dismiss = React.useRef<HTMLButtonElement>(null);
-  const drag = React.useRef<{ y: number; pointer: number } | null>(null);
+  const drag = React.useRef<{ y: number; pointer: number; engaged: boolean } | null>(null);
 
   function keepPortal(event: { preventDefault: () => void; target: EventTarget | null; detail?: { originalEvent?: Event } }) {
     if (staysOpen(outsideTarget(event))) event.preventDefault();
@@ -108,38 +114,55 @@ function DialogContent({
         />
         <div
           ref={panel}
-          className="pointer-events-auto relative z-10 flex max-h-[calc(100%-max(0.75rem,env(safe-area-inset-top))-env(safe-area-inset-bottom))] w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-h-[85dvh] sm:max-w-md sm:rounded-3xl"
+          data-slot="dialog-panel"
+          className="pointer-events-auto relative z-10 flex h-auto max-h-[calc(var(--sheet-vh,100dvh)-2rem)] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-w-md sm:rounded-3xl"
+          onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest("input, textarea, select, button, a, label, [role='option']")) return;
+            const scroll = target.closest("[data-slot='dialog-scroll']");
+            const chrome = target.closest("[data-slot='dialog-handle'], [data-slot='dialog-header']");
+            if (!chrome && !(scroll instanceof HTMLElement)) return;
+            if (scroll instanceof HTMLElement && scroll.scrollTop > 1) return;
+            drag.current = { y: event.clientY, pointer: event.pointerId, engaged: Boolean(chrome) };
+            if (chrome) event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const active = drag.current;
+            if (!active || active.pointer !== event.pointerId || !panel.current) return;
+            const delta = event.clientY - active.y;
+            if (!active.engaged) {
+              if (delta < 12) return;
+              const scroll = panel.current.querySelector("[data-slot='dialog-scroll']");
+              if (scroll instanceof HTMLElement && scroll.scrollTop > 1) {
+                drag.current = null;
+                return;
+              }
+              active.engaged = true;
+              panel.current.setPointerCapture(event.pointerId);
+            }
+            const next = Math.max(0, delta);
+            panel.current.style.transform = next ? `translateY(${next}px)` : "";
+          }}
+          onPointerUp={(event) => {
+            const active = drag.current;
+            if (!active || active.pointer !== event.pointerId) return;
+            drag.current = null;
+            const distance = event.clientY - active.y;
+            if (panel.current) panel.current.style.transform = "";
+            if (active.engaged && distance > 72) dismiss.current?.click();
+          }}
+          onPointerCancel={() => {
+            drag.current = null;
+            if (panel.current) panel.current.style.transform = "";
+          }}
         >
-          <div
-            data-slot="dialog-handle"
-            className="flex shrink-0 justify-center pt-2 sm:hidden"
-            onPointerDown={(event) => {
-              if (event.button !== 0) return;
-              drag.current = { y: event.clientY, pointer: event.pointerId };
-              event.currentTarget.setPointerCapture(event.pointerId);
-            }}
-            onPointerMove={(event) => {
-              const active = drag.current;
-              if (!active || active.pointer !== event.pointerId || !panel.current) return;
-              const next = Math.max(0, event.clientY - active.y);
-              panel.current.style.transform = next ? `translateY(${next}px)` : "";
-            }}
-            onPointerUp={(event) => {
-              const active = drag.current;
-              if (!active || active.pointer !== event.pointerId) return;
-              drag.current = null;
-              const distance = event.clientY - active.y;
-              if (panel.current) panel.current.style.transform = "";
-              if (distance > 72) dismiss.current?.click();
-            }}
-            onPointerCancel={() => {
-              drag.current = null;
-              if (panel.current) panel.current.style.transform = "";
-            }}
-          >
+          <MarkSheetOpen />
+          <div data-slot="dialog-handle" className="flex shrink-0 touch-none justify-center pt-2 sm:hidden">
             <span className="h-1 w-10 rounded-full bg-line" />
           </div>
-          {children}
+          <div className="flex min-h-0 flex-col overflow-hidden">{children}</div>
           <DialogPrimitive.Close ref={dismiss} className="sr-only">
             Close
           </DialogPrimitive.Close>

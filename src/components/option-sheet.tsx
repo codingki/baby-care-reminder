@@ -99,7 +99,7 @@ export function OptionSheet({
         }}
       >
         <DialogContent showCloseButton={false} onOpenAutoFocus={(event) => event.preventDefault()}>
-          <div className="safe-x flex shrink-0 items-center justify-between gap-3 pt-4 pb-2">
+          <div data-slot="dialog-header" className="safe-x flex shrink-0 items-center justify-between gap-3 pt-4 pb-2">
             <DialogTitle className="text-lg font-semibold">{label}</DialogTitle>
             <Button type="button" variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label={t("home.close")}>
               <CareIcon name="close" className="h-5 w-5" />
@@ -107,7 +107,7 @@ export function OptionSheet({
           </div>
           <DialogDescription className="sr-only">{label}</DialogDescription>
           {searchable ? (
-            <div className="safe-x pb-2">
+            <div className="safe-x shrink-0 pb-2">
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -119,7 +119,9 @@ export function OptionSheet({
           <div
             role="listbox"
             aria-label={label}
-            className="safe-x flex max-h-80 flex-col gap-2 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]"
+            data-slot="dialog-scroll"
+            data-vaul-no-drag
+            className="safe-x flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]"
           >
             {visible.map((option) => {
               const selected = option.value === value;
