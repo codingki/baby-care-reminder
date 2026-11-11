@@ -9,14 +9,22 @@ export type PushSubscribeResult =
   | "denied"
   | "failed";
 
-export function iosNeedsInstall() {
+export function isIos() {
   if (typeof navigator === "undefined") return false;
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const standalone =
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
+export function isStandalone() {
+  if (typeof navigator === "undefined") return false;
+  return (
     window.matchMedia("(display-mode: standalone)").matches ||
     ("standalone" in navigator &&
-      (navigator as Navigator & { standalone?: boolean }).standalone === true);
-  return ios && !standalone;
+      (navigator as Navigator & { standalone?: boolean }).standalone === true)
+  );
+}
+
+export function iosNeedsInstall() {
+  return isIos() && !isStandalone();
 }
 
 function urlBase64ToUint8Array(value: string) {

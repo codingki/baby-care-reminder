@@ -36,8 +36,8 @@ export function WhenField({ when, onChange }: { when: Date; onChange: (next: Dat
   ];
 
   return (
-    <div className="mt-6 flex flex-col gap-2">
-      <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="log-when">
+    <div className="mt-6 flex w-full min-w-0 max-w-full flex-col gap-2">
+      <label className="flex w-full min-w-0 max-w-full flex-col gap-2 text-sm font-semibold" htmlFor="log-when">
         {t("when.label")}
         <Input
           id="log-when"
@@ -50,7 +50,7 @@ export function WhenField({ when, onChange }: { when: Date; onChange: (next: Dat
           }}
         />
       </label>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex w-full min-w-0 max-w-full flex-wrap gap-2 overflow-x-auto">
         {picks.map((pick) => (
           <Button
             key={pick.minutes}

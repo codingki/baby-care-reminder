@@ -103,6 +103,49 @@ select {
   scroll-margin-bottom: 6rem;
 }
 
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 3rem;
+  min-height: 3rem;
+  padding: 0 1rem;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+
+input[type="date"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value {
+  min-height: 1.5em;
+  text-align: left;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+label:has(input[type="date"]),
+label:has(input[type="datetime-local"]),
+label:has(input[type="time"]),
+label:has(input[type="month"]) {
+  min-width: 0;
+  max-width: 100%;
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;

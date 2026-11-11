@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Share, Smartphone, SquarePlus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -19,7 +20,7 @@ import { loadRemotePumps, persistOwnedPump } from "@/lib/family-pumps";
 import { addOwnedPump, removeOwnedPump } from "@/lib/device-care";
 import { normalizeDays, normalizeHours } from "@/lib/pump-schedule";
 import { catalogByBrand } from "@/lib/pump-catalog";
-import { iosNeedsInstall, subscribeToPush } from "@/lib/push-subscribe";
+import { isIos, isStandalone, subscribeToPush } from "@/lib/push-subscribe";
 import { chooseBaby, rememberBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
 
@@ -47,6 +48,14 @@ type Flow = {
 };
 
 const TOTAL = 6;
+
+type InstallPrompt = Event & { prompt: () => Promise<{ outcome: string }> };
+
+function subscribeStandalone(onChange: () => void) {
+  const media = window.matchMedia("(display-mode: standalone)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
 
 function normalizeBirthDate(value: string) {
   const trimmed = value.trim();
@@ -164,7 +173,6 @@ export function OnboardingFlow() {
   const [name, setName] = useState("");
   const [familyName, setFamilyName] = useState("");
   const [invite, setInvite] = useState("");
-  const [joining, setJoining] = useState(false);
   const [babyName, setBabyName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -177,6 +185,11 @@ export function OnboardingFlow() {
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
   const [note, setNote] = useState<string | null>(null);
   const [primed, setPrimed] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [installPassed, setInstallPassed] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(null);
+  const lock = useRef(false);
+  const standalone = useSyncExternalStore(subscribeStandalone, isStandalone, () => false);
 
   if (flow && primed !== `${flow.userId}:${flow.familyId}:${editing}`) {
     setPrimed(`${flow.userId}:${flow.familyId}:${editing}`);
@@ -190,6 +203,7 @@ export function OnboardingFlow() {
     setDiaperMinutes(String(baby?.diaperMinutes ?? DEFAULT_DIAPER_INTERVAL_MINUTES));
     setHours(flow.pumpHours);
     setDays(flow.pumpDays);
+    setInstallPassed(localStorage.getItem(`bcr-a2hs-passed:${flow.userId}`) === "1");
   }
 
   useEffect(() => {
@@ -206,8 +220,42 @@ export function OnboardingFlow() {
       t("onboarding.remindersTitle"),
       t("onboarding.notificationsTitle"),
     ];
-    document.title = `${titles[(step ?? 1) - 1] ?? t("onboarding.title")} · ${t("shell.brand")}`;
-  }, [locale, step, t]);
+    const title =
+      step === 6 && !standalone && !installPassed
+        ? t("onboarding.installTitle")
+        : (titles[(step ?? 1) - 1] ?? t("onboarding.title"));
+    document.title = `${title} · ${t("shell.brand")}`;
+  }, [installPassed, locale, standalone, step, t]);
+
+  useEffect(() => {
+    const onPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as InstallPrompt);
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
+  }, []);
+
+  function fail(message?: string) {
+    const text = message || t("onboarding.error");
+    setNote(text);
+    toast(text);
+  }
+
+  async function run(task: () => Promise<void>) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setNote(null);
+    try {
+      await task();
+    } catch {
+      fail();
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["onboarding"] });
@@ -242,20 +290,20 @@ export function OnboardingFlow() {
       if (!editing && flow?.familyId && nextStep > flow.step) await saveStep.mutateAsync(nextStep);
       setStep(nextStep);
     } catch {
-      setNote(t("onboarding.error"));
+      fail();
     }
   }
 
   async function saveName() {
     const trimmed = name.trim();
     if (!trimmed || !flow) {
-      setNote(t("onboarding.error"));
+      fail();
       return;
     }
     const supabase = createClient();
     const { error: metaError } = await supabase.auth.updateUser({ data: { display_name: trimmed } });
     if (metaError) {
-      setNote(t("onboarding.error"));
+      fail();
       return;
     }
     if (flow.familyId) {
@@ -265,7 +313,7 @@ export function OnboardingFlow() {
         .eq("user_id", flow.userId)
         .eq("family_id", flow.familyId);
       if (error) {
-        setNote(error.message || t("onboarding.error"));
+        fail(error.message);
         return;
       }
     }
@@ -276,28 +324,34 @@ export function OnboardingFlow() {
   async function createFamily() {
     const trimmed = familyName.trim();
     if (!trimmed || !flow) {
-      setNote(t("onboarding.error"));
+      fail();
       return;
     }
-    if (flow.familyId) {
-      const supabase = createClient();
-      const { error } = await supabase.from("families").update({ name: trimmed }).eq("id", flow.familyId);
+    const supabase = createClient();
+    const { data: membership } = await supabase
+      .from("family_members")
+      .select("family_id")
+      .eq("user_id", flow.userId)
+      .limit(1)
+      .maybeSingle();
+    const familyId = flow.familyId || membership?.family_id;
+    if (familyId) {
+      const { error } = await supabase.from("families").update({ name: trimmed }).eq("id", familyId);
       if (error) {
-        setNote(error.message || t("onboarding.error"));
+        fail(error.message);
         return;
       }
       await refresh();
       await go(3);
       return;
     }
-    const supabase = createClient();
     const { data, error } = await supabase
       .from("families")
       .insert({ name: trimmed, created_by: flow.userId })
       .select("id")
       .single();
     if (error || !data?.id) {
-      setNote(error?.message || t("onboarding.error"));
+      fail(error?.message);
       return;
     }
     if (name.trim()) {
@@ -317,7 +371,7 @@ export function OnboardingFlow() {
     const supabase = createClient();
     const { data: familyId, error } = await supabase.rpc("accept_invite", { invite_token: token });
     if (error || !familyId) {
-      setNote(t("family.inviteError"));
+      fail(t("family.inviteError"));
       return;
     }
     const { count } = await supabase
@@ -338,19 +392,29 @@ export function OnboardingFlow() {
     const birthInput = form.querySelector<HTMLInputElement>("input[type='date']");
     const birth = normalizeBirthDate(birthInput?.value || birthDate);
     if (!babyName.trim() || !birth) {
-      setNote(t("onboarding.error"));
-      toast(t("onboarding.error"));
+      fail();
       return;
     }
     const supabase = createClient();
-    const existing = flow.babies.find((baby) => baby.id === flow.selectedBabyId) ?? flow.babies[0];
+    const { data: existingRows } = await supabase
+      .from("babies")
+      .select("id, photo_path")
+      .eq("family_id", flow.familyId)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    const listed = flow.babies.find((baby) => baby.id === flow.selectedBabyId) ?? flow.babies[0];
+    const existing = listed
+      ? { id: listed.id, photoPath: listed.photoPath }
+      : existingRows?.[0]
+        ? { id: existingRows[0].id, photoPath: existingRows[0].photo_path }
+        : null;
     if (existing) {
       const { error } = await supabase
         .from("babies")
         .update({ name: babyName.trim(), birth_date: birth })
         .eq("id", existing.id);
       if (error) {
-        setNote(error.message || t("onboarding.error"));
+        fail(error.message);
         return;
       }
       if (photoFile) {
@@ -366,7 +430,7 @@ export function OnboardingFlow() {
         .select("id")
         .single();
       if (error || !data?.id) {
-        setNote(error?.message || t("onboarding.error"));
+        fail(error?.message);
         return;
       }
       if (photoFile) {
@@ -395,13 +459,13 @@ export function OnboardingFlow() {
       nickname,
     });
     if (!created) {
-      setNote(t("onboarding.error"));
+      fail();
       return;
     }
     const result = await persistOwnedPump(created);
     if (result === "error") {
       removeOwnedPump(created.id);
-      setNote(t("common.failed"));
+      fail(t("common.failed"));
       return;
     }
     setCustomPump("");
@@ -414,7 +478,7 @@ export function OnboardingFlow() {
     const feed = parseDecimal(feedMinutes);
     const diaper = parseDecimal(diaperMinutes);
     if (feed === null || feed <= 0 || diaper === null || diaper <= 0) {
-      setNote(t("onboarding.error"));
+      fail();
       return;
     }
     const baby = flow.babies.find((item) => item.id === flow.selectedBabyId) ?? flow.babies[0];
@@ -428,7 +492,7 @@ export function OnboardingFlow() {
         })
         .eq("id", baby.id);
       if (error) {
-        setNote(error.message || t("onboarding.error"));
+        fail(error.message);
         return;
       }
     }
@@ -445,7 +509,7 @@ export function OnboardingFlow() {
         .update({ pump_hours: hours, pump_days: days, pump_schedule_timezone: zone || "UTC" })
         .eq("id", flow.familyId);
       if (error) {
-        setNote(error.message || t("onboarding.error"));
+        fail(error.message);
         return;
       }
     }
@@ -460,24 +524,27 @@ export function OnboardingFlow() {
       await go(7);
       return;
     }
-    if (result === "denied") setNote(t("settings.notificationsDenied"));
-    else if (result === "unsupported") setNote(t("settings.notificationsUnsupported"));
-    else if (result === "missing-key") setNote(t("settings.vapidMissing"));
-    else if (result === "ios-install") setNote(t("settings.iosBody"));
-    else setNote(t("common.failed"));
+    if (result === "denied") fail(t("settings.notificationsDenied"));
+    else if (result === "unsupported") fail(t("settings.notificationsUnsupported"));
+    else if (result === "missing-key") fail(t("settings.vapidMissing"));
+    else if (result === "ios-install") fail(t("settings.iosBody"));
+    else fail(t("common.failed"));
   }
 
-  const pending = saveStep.isPending;
+  const pending = busy || saveStep.isPending;
   const current = step ?? 1;
+  const showInstall = current === 6 && !standalone && !installPassed;
+  const dotTotal = standalone ? TOTAL : TOTAL + 1;
+  const dotCurrent = showInstall ? 6 : current < 6 ? current : standalone ? 6 : 7;
   const baby = flow?.babies.find((item) => item.id === flow.selectedBabyId) ?? flow?.babies[0];
   const groups = catalogByBrand();
 
   return (
-    <section className="flex flex-col gap-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <section className="flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center justify-between gap-3">
-        <ol className="flex flex-1 gap-1.5" aria-label={t("onboarding.progress", { current: String(current), total: String(TOTAL) })}>
-          {Array.from({ length: TOTAL }, (_, index) => (
-            <li key={index} className={`h-1.5 flex-1 rounded-full ${index < current ? "bg-accent" : "bg-line"}`} />
+        <ol className="flex flex-1 gap-1.5" aria-label={t("onboarding.progress", { current: String(dotCurrent), total: String(dotTotal) })}>
+          {Array.from({ length: dotTotal }, (_, index) => (
+            <li key={index} className={`h-1.5 flex-1 rounded-full ${index < dotCurrent ? "bg-accent" : "bg-line"}`} />
           ))}
         </ol>
         {editing ? (
@@ -496,7 +563,7 @@ export function OnboardingFlow() {
               className="flex flex-col gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                void saveName();
+                void run(saveName);
               }}
             >
               <header className="flex flex-col gap-1">
@@ -521,14 +588,14 @@ export function OnboardingFlow() {
                 className="flex flex-col gap-3"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void createFamily();
+                  void run(createFamily);
                 }}
               >
                 <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="setup-family">
                   {t("onboarding.familyName")}
                   <Input id="setup-family" required value={familyName} onChange={(event) => setFamilyName(event.target.value)} />
                 </label>
-                <Button type="submit" disabled={pending}>
+                <Button type="submit" disabled={pending} aria-busy={pending}>
                   {pending ? <SavingLabel label={t("common.saving")} /> : flow.familyId ? t("common.save") : t("onboarding.saveFamily")}
                 </Button>
               </form>
@@ -537,8 +604,7 @@ export function OnboardingFlow() {
                   className="flex flex-col gap-3 border-t border-line pt-4"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    setJoining(true);
-                    void joinFamily().finally(() => setJoining(false));
+                    void run(joinFamily);
                   }}
                 >
                   <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="setup-invite">
@@ -550,8 +616,8 @@ export function OnboardingFlow() {
                       placeholder={t("onboarding.inviteHint")}
                     />
                   </label>
-                  <Button type="submit" variant="outline" disabled={joining}>
-                    {joining ? <SavingLabel label={t("common.saving")} /> : t("onboarding.joinFamily")}
+                  <Button type="submit" variant="outline" disabled={pending} aria-busy={pending}>
+                    {pending ? <SavingLabel label={t("common.saving")} /> : t("onboarding.joinFamily")}
                   </Button>
                 </form>
               )}
@@ -566,7 +632,7 @@ export function OnboardingFlow() {
               className="flex flex-col gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                void saveBaby(event.currentTarget);
+                void run(() => saveBaby(event.currentTarget));
               }}
             >
               <header className="flex flex-col gap-1">
@@ -636,20 +702,20 @@ export function OnboardingFlow() {
                 {t("settings.nickname")}
                 <Input id="setup-nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} />
               </label>
-              <Button type="button" variant="outline" onClick={() => void addPump()}>
-                {t("settings.addPump")}
+              <Button type="button" variant="outline" onClick={() => void run(addPump)} disabled={pending} aria-busy={pending}>
+                {pending ? <SavingLabel label={t("common.saving")} /> : t("settings.addPump")}
               </Button>
               <div className="flex gap-2">
-                <Button type="button" variant="ghost" className="flex-1" onClick={() => setStep(3)}>
+                <Button type="button" variant="ghost" className="flex-1" onClick={() => setStep(3)} disabled={pending}>
                   {t("onboarding.back")}
                 </Button>
                 {flow.pumpCount === 0 ? (
-                  <Button type="button" variant="outline" className="flex-1" onClick={() => void go(5)}>
-                    {t("onboarding.noPump")}
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => void run(() => go(5))} disabled={pending} aria-busy={pending}>
+                    {pending ? <SavingLabel label={t("common.saving")} /> : t("onboarding.noPump")}
                   </Button>
                 ) : (
-                  <Button type="button" className="flex-1" onClick={() => void go(5)}>
-                    {t("onboarding.next")}
+                  <Button type="button" className="flex-1" onClick={() => void run(() => go(5))} disabled={pending} aria-busy={pending}>
+                    {pending ? <SavingLabel label={t("common.saving")} /> : t("onboarding.next")}
                   </Button>
                 )}
               </div>
@@ -661,7 +727,7 @@ export function OnboardingFlow() {
               className="flex flex-col gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                void saveReminders();
+                void run(saveReminders);
               }}
             >
               <header className="flex flex-col gap-1">
@@ -688,26 +754,82 @@ export function OnboardingFlow() {
             </form>
           ) : null}
 
-          {current === 6 ? (
+          {showInstall ? (
+            <div className="flex flex-col gap-4">
+              <header className="flex flex-col gap-1">
+                <h1 className="text-2xl font-semibold tracking-tight">{t("onboarding.installTitle")}</h1>
+                <p className="text-sm leading-6 text-muted">{t("onboarding.installHint")}</p>
+              </header>
+              {isIos() ? (
+                <ol className="flex flex-col gap-3">
+                  <InstallRow icon={<Share className="h-5 w-5" />} text={t("onboarding.installShare")} />
+                  <InstallRow icon={<SquarePlus className="h-5 w-5" />} text={t("onboarding.installAdd")} />
+                  <InstallRow icon={<Smartphone className="h-5 w-5" />} text={t("onboarding.installOpen")} />
+                </ol>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <p className="text-sm leading-6 text-muted">{t("onboarding.installAndroid")}</p>
+                  {installPrompt ? (
+                    <Button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => {
+                        const prompt = installPrompt;
+                        setInstallPrompt(null);
+                        void prompt.prompt();
+                      }}
+                    >
+                      {t("onboarding.installButton")}
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+              <button
+                type="button"
+                className="self-center text-sm text-muted underline-offset-4 hover:underline disabled:opacity-50"
+                disabled={pending}
+                onClick={() => {
+                  if (isIos()) {
+                    void run(() => go(7));
+                    return;
+                  }
+                  if (flow?.userId) localStorage.setItem(`bcr-a2hs-passed:${flow.userId}`, "1");
+                  setInstallPassed(true);
+                }}
+              >
+                {t("onboarding.skipForNow")}
+              </button>
+              <Button type="button" variant="ghost" onClick={() => setStep(5)}>
+                {t("onboarding.back")}
+              </Button>
+            </div>
+          ) : null}
+
+          {current === 6 && !showInstall ? (
             <div className="flex flex-col gap-4">
               <header className="flex flex-col gap-1">
                 <h1 className="text-2xl font-semibold tracking-tight">{t("onboarding.notificationsTitle")}</h1>
-                <p className="text-sm leading-6 text-muted">{t("settings.notificationsHint")}</p>
+                <p className="text-sm leading-6 text-muted">
+                  {isIos() && !standalone ? t("onboarding.notificationsNeedHome") : t("settings.notificationsHint")}
+                </p>
               </header>
-              {iosNeedsInstall() ? (
-                <ol className="flex flex-col gap-2 text-sm leading-6">
-                  <li>{t("settings.installHint")}</li>
-                  <li>{t("settings.iosShare")}</li>
-                  <li>{t("settings.iosBody")}</li>
-                </ol>
-              ) : null}
-              <Button type="button" onClick={() => void allowNotifications()}>
-                {t("settings.enableNotifications")}
+              {isIos() && !standalone ? null : (
+                <Button type="button" onClick={() => void run(allowNotifications)} disabled={pending} aria-busy={pending}>
+                  {pending ? <SavingLabel label={t("common.saving")} /> : t("settings.enableNotifications")}
+                </Button>
+              )}
+              <Button type="button" variant="outline" onClick={() => void run(() => go(7))} disabled={pending} aria-busy={pending}>
+                {pending ? <SavingLabel label={t("common.saving")} /> : t("onboarding.maybeLater")}
               </Button>
-              <Button type="button" variant="outline" onClick={() => void go(7)}>
-                {t("onboarding.maybeLater")}
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => setStep(5)}>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={pending}
+                onClick={() => {
+                  if (!standalone && installPassed) setInstallPassed(false);
+                  else setStep(5);
+                }}
+              >
                 {t("onboarding.back")}
               </Button>
             </div>
@@ -721,6 +843,17 @@ export function OnboardingFlow() {
         </p>
       ) : null}
     </section>
+  );
+}
+
+function InstallRow({ icon, text }: { icon: ReactNode; text: string }) {
+  return (
+    <li className="flex items-center gap-3 rounded-lg border border-line px-3 py-3">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-accent" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="text-sm leading-5">{text}</span>
+    </li>
   );
 }
 

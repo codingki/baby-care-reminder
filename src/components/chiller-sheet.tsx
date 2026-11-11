@@ -164,7 +164,7 @@ export function ChillerSheet({
         {step === "milk" ? (
           <form
             id="chiller-milk"
-            className="flex flex-col"
+            className="flex w-full min-w-0 max-w-full flex-col overflow-x-hidden"
             onSubmit={(event) => {
               event.preventDefault();
               void storeMilk();
@@ -224,7 +224,7 @@ export function ChillerSheet({
         {step === "parts" ? (
           <form
             id="chiller-parts"
-            className="flex flex-col"
+            className="flex w-full min-w-0 max-w-full flex-col overflow-x-hidden"
             onSubmit={(event) => {
               event.preventDefault();
               void storeParts();

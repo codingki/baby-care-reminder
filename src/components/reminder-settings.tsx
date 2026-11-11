@@ -41,7 +41,7 @@ export function ReminderSettings() {
   const [timeZoneManual, setTimeZoneManual] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(null);
-  const [pending, setPending] = useState<"push" | "quiet" | "snooze" | "clear" | null>(null);
+  const [pending, setPending] = useState<"push" | "quiet" | "snooze" | "clear" | "zone" | null>(null);
   const lock = useRef(false);
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export function ReminderSettings() {
     })();
   }, []);
 
-  async function run(action: "push" | "quiet" | "snooze" | "clear", task: () => Promise<void>) {
+  async function run(action: "push" | "quiet" | "snooze" | "clear" | "zone", task: () => Promise<void>) {
     if (lock.current) return;
     lock.current = true;
     setPending(action);
@@ -206,10 +206,16 @@ export function ReminderSettings() {
           value={timeZone}
           searchable
           options={timeZoneOptions(timeZone).map((zone) => ({ value: zone, label: zone }))}
-          onChange={(zone) => void saveTimeZone(zone, true)}
+          onChange={(zone) => void run("zone", () => saveTimeZone(zone, true))}
         />
-        <Button type="button" variant="outline" onClick={() => void saveTimeZone(deviceTimeZone(), false)}>
-          {t("settings.timeZoneUseDevice")}
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending !== null}
+          aria-busy={pending === "zone"}
+          onClick={() => void run("zone", () => saveTimeZone(deviceTimeZone(), false))}
+        >
+          {pending === "zone" ? <SavingLabel label={t("common.saving")} /> : t("settings.timeZoneUseDevice")}
         </Button>
       </div>
 

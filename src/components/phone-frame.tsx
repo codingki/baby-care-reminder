@@ -65,7 +65,7 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
         ref.current = node;
         bindAppFrame(node);
       }}
-      className="fixed inset-x-0 top-0 z-10 mx-auto flex h-dvh min-h-[100svh] w-full max-w-none flex-col rounded-none bg-background sm:max-w-md sm:shadow-[0_0_0_1px_var(--line)]"
+      className="fixed inset-x-0 top-0 z-10 mx-auto flex h-dvh min-h-[100svh] w-full min-w-0 max-w-none flex-col overflow-x-hidden rounded-none bg-background sm:max-w-md sm:shadow-[0_0_0_1px_var(--line)]"
     >
       {children}
       <Toaster />

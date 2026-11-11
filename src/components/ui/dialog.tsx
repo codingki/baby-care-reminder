@@ -96,7 +96,7 @@ function DialogContent({
           onInteractOutside?.(event);
         }}
         className={cn(
-          "pointer-events-auto absolute inset-0 z-40 flex items-end justify-center outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom motion-reduce:animate-none sm:items-center sm:p-4 sm:data-[state=open]:zoom-in-95 sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=closed]:slide-out-to-bottom-0",
+          "pointer-events-auto absolute inset-0 z-40 flex min-w-0 max-w-full items-end justify-center overflow-x-hidden outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom motion-reduce:animate-none sm:items-center sm:p-4 sm:data-[state=open]:zoom-in-95 sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=closed]:slide-out-to-bottom-0",
           className
         )}
         {...props}
@@ -108,7 +108,7 @@ function DialogContent({
         />
         <div
           ref={panel}
-          className="pointer-events-auto relative z-10 flex max-h-[calc(100%-max(0.75rem,env(safe-area-inset-top))-env(safe-area-inset-bottom))] w-full flex-col overflow-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-h-[85dvh] sm:max-w-md sm:rounded-3xl"
+          className="pointer-events-auto relative z-10 flex max-h-[calc(100%-max(0.75rem,env(safe-area-inset-top))-env(safe-area-inset-bottom))] w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-hidden rounded-t-3xl bg-background text-base text-foreground shadow-[0_0_0_1px_var(--line)] sm:max-h-[85dvh] sm:max-w-md sm:rounded-3xl"
         >
           <div
             data-slot="dialog-handle"

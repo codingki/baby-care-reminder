@@ -100,7 +100,7 @@ export function AddBabyForm({
 
   return (
     <form
-      className="flex flex-col gap-3"
+      className="flex w-full min-w-0 max-w-full flex-col gap-3 overflow-x-hidden"
       onSubmit={(event) => {
         event.preventDefault();
         void save(event.currentTarget);

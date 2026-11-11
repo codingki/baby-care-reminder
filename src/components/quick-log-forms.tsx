@@ -62,7 +62,7 @@ async function finishLog(
   onClose();
 }
 
-const field = "safe-x min-h-0 overflow-y-auto overscroll-contain pt-1 pb-4";
+const field = "safe-x min-h-0 w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto overscroll-contain pt-1 pb-4";
 const footer = "safe-x flex shrink-0 flex-col gap-2 border-t border-line bg-background pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]";
 
 export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {

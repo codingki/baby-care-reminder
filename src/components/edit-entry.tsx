@@ -356,7 +356,7 @@ function EditorFrame({
     <div className="flex max-h-[inherit] flex-col">
       <DialogTitle className="safe-x pt-2 text-lg font-semibold">{title}</DialogTitle>
       <DialogDescription className="sr-only">{title}</DialogDescription>
-      <div className="safe-x flex min-h-0 flex-col overflow-y-auto py-3">{children}</div>
+      <div className="safe-x flex min-h-0 w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-auto py-3">{children}</div>
       <div className="safe-x flex flex-col gap-2 border-t border-line py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {confirm ? (
           <>
