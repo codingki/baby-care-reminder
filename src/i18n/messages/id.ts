@@ -102,6 +102,8 @@ export const id = {
     failed: "Tidak tersimpan.",
     loading: "Memuat…",
     saving: "Menyimpan…",
+    search: "Cari",
+    choose: "Pilih",
   },
   onboarding: {
     title: "Profil bayi",

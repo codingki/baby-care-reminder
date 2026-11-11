@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChoiceButtons } from "@/components/option-sheet";
 
 const tiles = ["Diaper", "Feed", "DBF", "Pump", "Chiller", "Weight"];
 
@@ -32,16 +32,16 @@ export default function ShellCheckPage() {
           <form className="flex flex-col gap-3 px-5 pb-6">
             <Input type="date" aria-label="Birth date" defaultValue="2024-01-02" />
             <Input type="text" inputMode="decimal" aria-label="Weight" defaultValue="3.4" />
-            <Select value={sex} onValueChange={setSex}>
-              <SelectTrigger aria-label="Sex">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="unspecified">Unspecified</SelectItem>
-              </SelectContent>
-            </Select>
+            <ChoiceButtons
+              label="Sex"
+              value={sex}
+              options={[
+                { value: "female", label: "Female" },
+                { value: "male", label: "Male" },
+                { value: "unspecified", label: "Unspecified" },
+              ]}
+              onChange={setSex}
+            />
           </form>
         </DialogContent>
       </Dialog>

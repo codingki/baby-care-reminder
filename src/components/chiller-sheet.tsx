@@ -9,7 +9,7 @@ import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { DecimalInput } from "@/components/decimal-input";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChoiceButtons, OptionSheet } from "@/components/option-sheet";
 import { useWhen, WhenField } from "@/components/when-field";
 import { useI18n } from "@/i18n/provider";
 import { parseDecimal } from "@/lib/decimal";
@@ -189,43 +189,24 @@ export function ChillerSheet({
               <DecimalInput locale={locale} id="sheet-milk-ml" value={milkMl} onValueChange={setMilkMl} />
           </label>
           <PresetChips values={volumePresets(unit)} onPick={(value) => setMilkMl(String(value))} />
-          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-where">
-              {t("pump.location")}
-              <Select
-                value={location}
-                onValueChange={(value) => {
-                  if (value === "fridge" || value === "freezer" || value === "cooler") setLocation(value);
-                }}
-              >
-                <SelectTrigger id="sheet-milk-where">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LOCATIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {t(`chiller.${option}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-baby">
-              {t("chiller.baby")}
-              <span className="font-normal text-muted"> · {t("chiller.noteOptional")}</span>
-              <Select value={milkBabyId || "none"} onValueChange={(value) => setMilkBabyId(value === "none" ? "" : value)}>
-                <SelectTrigger id="sheet-milk-baby">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t("chiller.babyNone")}</SelectItem>
-                  {babies.map((baby) => (
-                    <SelectItem key={baby.id} value={baby.id}>
-                      {baby.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
+          <ChoiceButtons
+            label={t("pump.location")}
+            value={location}
+            options={LOCATIONS.map((option) => ({ value: option, label: t(`chiller.${option}`) }))}
+            onChange={(value) => {
+              if (value === "fridge" || value === "freezer" || value === "cooler") setLocation(value);
+            }}
+          />
+            <OptionSheet
+              id="sheet-milk-baby"
+              label={`${t("chiller.baby")} · ${t("chiller.noteOptional")}`}
+              value={milkBabyId || "none"}
+              options={[
+                { value: "none", label: t("chiller.babyNone") },
+                ...babies.map((baby) => ({ value: baby.id, label: baby.name })),
+              ]}
+              onChange={(value) => setMilkBabyId(value === "none" ? "" : value)}
+            />
             <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-milk-note">
               {t("chiller.note")}
               <span className="font-normal text-muted"> · {t("chiller.noteOptional")}</span>
@@ -271,21 +252,14 @@ export function ChillerSheet({
                 </Link>
               </p>
             ) : (
-              <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="sheet-pump">
-                {t("pump.pickPump")}
-                <Select value={selectedPump || undefined} onValueChange={setPumpId}>
-                  <SelectTrigger id="sheet-pump">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pumps.map((pump) => (
-                      <SelectItem key={pump.id} value={pump.id}>
-                        {pump.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
+              <OptionSheet
+                id="sheet-pump"
+                label={t("pump.pickPump")}
+                value={selectedPump}
+                searchable={pumps.length > 8}
+                options={pumps.map((pump) => ({ value: pump.id, label: pump.label }))}
+                onChange={setPumpId}
+              />
             )}
             {selectedPump && activePartPumpIds.includes(selectedPump) ? (
               <p className="text-sm text-muted">{t("chiller.replacesExisting")}</p>

@@ -6,7 +6,7 @@ import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { OptionSheet } from "@/components/option-sheet";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import { addOwnedPump, getCareState, pumpLabel, removeOwnedPump, replacePumps } from "@/lib/device-care";
@@ -121,27 +121,19 @@ export function MyPumps() {
           ))}
         </ul>
       )}
-      <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="pump-model">
-        {t("settings.brandModel")}
-        <Select value={choice} onValueChange={setChoice}>
-          <SelectTrigger id="pump-model">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {groups.map((group) => (
-              <SelectGroup key={group.brand}>
-                <SelectLabel>{group.brand}</SelectLabel>
-                {group.pumps.map((pump) => (
-                  <SelectItem key={pump.id} value={pump.id}>
-                    {pump.model}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-            <SelectItem value="custom">{t("settings.custom")}</SelectItem>
-          </SelectContent>
-        </Select>
-      </label>
+      <OptionSheet
+        id="pump-model"
+        label={t("settings.brandModel")}
+        value={choice}
+        searchable
+        options={[
+          ...groups.flatMap((group) =>
+            group.pumps.map((pump) => ({ value: pump.id, label: `${group.brand} · ${pump.model}` })),
+          ),
+          { value: "custom", label: t("settings.custom") },
+        ]}
+        onChange={setChoice}
+      />
       {choice === "custom" ? (
         <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="custom-pump">
           {t("settings.customName")}

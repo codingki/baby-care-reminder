@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { focusBaby, scopedKey, scopeFromKey, useScope, type CareScope } from "@/lib/care-queries";
+import { useLiveChiller } from "@/lib/chiller-cache";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BabySwitcher, type SwitchBaby } from "@/components/baby-switcher";
@@ -47,7 +48,6 @@ type HomeData = {
   diaperStart: string | null;
   feedStart: string | null;
   logs: LogRow[];
-  chiller: ChillerRow[];
   pumps: OwnedPump[];
 };
 
@@ -218,7 +218,7 @@ export function HomeDashboard() {
     const babyRow = roster.find((baby) => baby.id === selectedId) ?? null;
     const viewBaby = selectedId ?? "00000000-0000-0000-0000-000000000000";
 
-    const [diaperLast, feedLast, familyPump, scheduleRow, recent, chillerRows, reminders] = await Promise.all([
+    const [diaperLast, feedLast, familyPump, scheduleRow, recent, reminders] = await Promise.all([
       supabase
         .from("logs")
         .select("occurred_at")
@@ -262,14 +262,6 @@ export function HomeDashboard() {
         .order("occurred_at", { ascending: false })
         .limit(8),
       supabase
-        .from("chiller_items")
-        .select("id, type, baby_id, location, stored_at, expires_at, volume_ml, pump_id, note")
-        .eq("family_id", familyId)
-        .is("cleared_at", null)
-        .is("deleted_at", null)
-        .order("expires_at")
-        .limit(40),
-      supabase
         .from("reminders")
         .select("reminder_type, next_due_at, chiller_item_id, baby_id")
         .eq("family_id", familyId)
@@ -305,10 +297,6 @@ export function HomeDashboard() {
         const log = asLog(String(row.id), row as Record<string, unknown>);
         return log ? [log] : [];
       }),
-      chiller: (chillerRows.data ?? []).flatMap((row) => {
-        const item = asChiller(String(row.id), row as Record<string, unknown>);
-        return item ? [item] : [];
-      }),
       pumps: remotePumps ?? [],
     };
   }, []);
@@ -326,6 +314,7 @@ export function HomeDashboard() {
     queryFn: ({ queryKey }) => load(scopeFromKey(queryKey)),
     enabled: Boolean(activeScope?.userId && activeScope.familyId),
   });
+  const chillerQuery = useLiveChiller(scope.data?.familyId);
   const view = homeQuery.data ?? null;
   const familyId = view?.familyId ?? null;
   const babies = view?.babies ?? [];
@@ -334,7 +323,18 @@ export function HomeDashboard() {
   const feedAt = view?.feedAt ?? null;
   const diaperStart = view?.diaperStart ?? null;
   const feedStart = view?.feedStart ?? null;
-  const chiller = view?.chiller ?? [];
+  const chiller = (chillerQuery.data ? chillerQuery.data.items.filter((item) => !item.clearedAt) : [])
+    .map((item) => ({
+      id: item.id,
+      type: item.type,
+      babyId: item.babyId,
+      location: item.location,
+      storedAt: item.storedAt,
+      expiresAt: item.expiresAt,
+      volumeMl: item.volumeMl,
+      pumpId: item.pumpId,
+      note: item.note ?? null,
+    }));
   const logs = view?.logs ?? [];
   const pumps = view?.pumps ?? [];
   const status = view ? "ready" : scope.isError || homeQuery.isError || (scope.isSuccess && !scope.data) ? "error" : "loading";
@@ -345,7 +345,9 @@ export function HomeDashboard() {
   }, [baby, locale, t]);
 
   const mergedPumps = mergePumps(pumps, device.pumps);
-  const deviceChiller: ChillerRow[] = device.items.filter((item) => !item.clearedAt).map((item) => ({
+  const deviceChiller: ChillerRow[] = chillerQuery.data
+    ? []
+    : device.items.filter((item) => !item.clearedAt).map((item) => ({
     id: item.id,
     type: item.type,
     babyId: null,
@@ -693,6 +695,7 @@ export function HomeDashboard() {
       <EditEntryDialog
         log={editing?.log ?? null}
         chiller={editing?.chiller ?? null}
+        familyId={familyId}
         washByHours={24}
         onClose={() => setEditing(null)}
         onSaved={refreshHome}

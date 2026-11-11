@@ -99,6 +99,8 @@ export const en = {
     failed: "Could not save.",
     loading: "Loading…",
     saving: "Saving…",
+    search: "Search",
+    choose: "Choose",
   },
   onboarding: {
     title: "Baby profile",

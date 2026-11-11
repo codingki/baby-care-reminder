@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { CareIcon } from "@/components/care-icon";
 import { ExpiryBar } from "@/components/expiry-bar";
 import { Badge } from "@/components/ui/badge";
@@ -14,8 +13,10 @@ import { SavingLabel } from "@/components/saving-label";
 import { Screen } from "@/components/screen";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
-import { loadLiveChiller, type LiveChillerItem } from "@/lib/chiller-live";
-import { scopedKey, useScope } from "@/lib/care-queries";
+import { type LiveChillerItem } from "@/lib/chiller-live";
+import { clearChillerItem, useLiveChiller } from "@/lib/chiller-cache";
+import { useScope } from "@/lib/care-queries";
+import { EditEntryDialog, type ChillerEdit } from "@/components/edit-entry";
 import { markChillerCleared, pumpLabel, type ChillerItem, type OwnedPump } from "@/lib/device-care";
 import { formatSpan, nowMs } from "@/lib/relative-time";
 import { createClient } from "@/lib/supabase/client";
@@ -26,11 +27,8 @@ export default function ChillerPage() {
   const [now, setNow] = useState(nowMs);
   const scope = useScope();
   const queryClient = useQueryClient();
-  const chillerQuery = useQuery({
-    queryKey: scopedKey("chiller", scope.data),
-    queryFn: () => loadLiveChiller(),
-    enabled: Boolean(scope.data?.userId && scope.data.familyId),
-  });
+  const chillerQuery = useLiveChiller(scope.data?.familyId);
+  const [editing, setEditing] = useState<ChillerEdit | null>(null);
   const live = chillerQuery.data?.items ?? null;
   const babyCount = chillerQuery.data?.babyCount ?? 0;
   const state = chillerQuery.data ? "ready" : chillerQuery.isPending ? "loading" : scope.data ? "error" : "loading";
@@ -47,8 +45,7 @@ export default function ChillerPage() {
   }, []);
 
   const reloadChiller = () => {
-    void queryClient.invalidateQueries({ queryKey: ["chiller"] });
-    void queryClient.invalidateQueries({ queryKey: ["home"] });
+    void queryClient.invalidateQueries({ queryKey: ["chiller", scope.data?.familyId] });
   };
 
   const deviceItems: LiveChillerItem[] = device.items.map((item) => ({
@@ -59,7 +56,7 @@ export default function ChillerPage() {
     clearedAt: item.clearedAt ?? null,
     clearedReason: item.clearedReason ?? null,
   }));
-  const items = mergeItems(live, deviceItems);
+  const items = live ? live : deviceItems;
   const active = items.filter((item) => !item.clearedAt);
   const cleared = items.filter((item) => item.clearedAt);
   const expiredMilk = active.filter(
@@ -91,7 +88,10 @@ export default function ChillerPage() {
         setClearAllError(t("common.failed"));
         return;
       }
-      for (const item of expiredMilk) markChillerCleared(item.id, clearedAt, "discarded");
+      for (const item of expiredMilk) {
+        markChillerCleared(item.id, clearedAt, "discarded");
+        clearChillerItem(queryClient, scope.data?.familyId, item.id, clearedAt, "discarded");
+      }
       undo.show(expiredMilk.map(toUndo));
       setClearAllConfirm(false);
       reloadChiller();
@@ -194,7 +194,20 @@ export default function ChillerPage() {
                     expired && filter === "active" ? "border-danger" : ""
                   }`}
                 >
-                <Link href={`/chiller/${item.id}`} className="flex min-w-0 flex-1 items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditing({
+                      id: item.id,
+                      type: item.type,
+                      location: item.location,
+                      storedAt: item.storedAt,
+                      volumeMl: item.volumeMl,
+                      note: item.note ?? null,
+                    })
+                  }
+                  className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                >
                   <CareIcon
                     name={item.type === "milk" ? "feed" : "chiller"}
                     className={`mt-0.5 h-5 w-5 shrink-0 ${expired && filter === "active" ? "text-danger" : "text-accent"}`}
@@ -216,11 +229,12 @@ export default function ChillerPage() {
                       <p className="mt-1 text-sm">{when}</p>
                     )}
                   </span>
-                </Link>
+                </button>
                 {filter === "active" ? (
                   <ClearChiller
                     id={item.id}
                     type={item.type}
+                    familyId={scope.data?.familyId ?? null}
                     onCleared={() => {
                       undo.show([toUndo(item)]);
                       reloadChiller();
@@ -243,6 +257,16 @@ export default function ChillerPage() {
           })}
         </ul>
       )}
+      <EditEntryDialog
+        log={null}
+        chiller={editing}
+        familyId={scope.data?.familyId ?? null}
+        washByHours={24}
+        onClose={() => setEditing(null)}
+        onSaved={async () => {
+          reloadChiller();
+        }}
+      />
       <ChillerUndoToast
         items={undo.items}
         onDone={() => {
@@ -261,13 +285,4 @@ function toUndo(item: LiveChillerItem): UndoItem {
 function deviceName(item: ChillerItem, pumps: OwnedPump[]) {
   const pump = pumps.find((entry) => entry.id === item.pumpId);
   return pump ? pumpLabel(pump) : null;
-}
-
-function mergeItems(live: LiveChillerItem[] | null, device: LiveChillerItem[]) {
-  const byId = new Map<string, LiveChillerItem>();
-  for (const item of live ?? []) byId.set(item.id, item);
-  for (const item of device) {
-    if (!byId.has(item.id)) byId.set(item.id, item);
-  }
-  return [...byId.values()].sort((left, right) => (left.expiresAt < right.expiresAt ? -1 : 1));
 }

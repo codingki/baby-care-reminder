@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toWhenInput, WhenField, useWhen } from "@/components/when-field";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChoiceButtons, OptionSheet } from "@/components/option-sheet";
 import { Switch } from "@/components/ui/switch";
 import { useSaveLock } from "@/components/use-save-lock";
 import { useCareStore } from "@/components/use-care-store";
@@ -582,21 +582,14 @@ export function PumpLog({
             </Link>
           </p>
         ) : (
-          <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="session-pump">
-            {t("pump.pickPump")}
-            <Select value={selectedPump?.id} onValueChange={setPumpId}>
-              <SelectTrigger id="session-pump">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {care.pumps.map((pump) => (
-                  <SelectItem key={pump.id} value={pump.id}>
-                    {pumpLabel(pump)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
+          <OptionSheet
+            id="session-pump"
+            label={t("pump.pickPump")}
+            value={selectedPump?.id ?? ""}
+            searchable={care.pumps.length > 8}
+            options={care.pumps.map((pump) => ({ value: pump.id, label: pumpLabel(pump) }))}
+            onChange={setPumpId}
+          />
         )}
         {logged ? (
           <Card className="gap-4 p-4">
@@ -621,35 +614,23 @@ export function PumpLog({
                 </label>
                 <PresetChips values={volumePresets(unit)} onPick={(value) => setVolume(String(value))} />
                 <p className="text-sm text-muted">{t("pump.milkOptional")}</p>
-                <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor="milk-location">
-                  {t("pump.location")}
-                  <Select
-                    value={milkLocation}
-                    onValueChange={(value) => {
-                      if (
-                        value === "room" ||
-                        value === "fridge" ||
-                        value === "freezer" ||
-                        value === "cooler" ||
-                        value === "thawed" ||
-                        value === "leftover"
-                      ) {
-                        setMilkLocation(value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="milk-location">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CHILLER_LOCATIONS.map((location) => (
-                        <SelectItem key={location} value={location}>
-                          {t(`chiller.${location}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </label>
+                <ChoiceButtons
+                  label={t("pump.location")}
+                  value={milkLocation}
+                  options={CHILLER_LOCATIONS.map((location) => ({ value: location, label: t(`chiller.${location}`) }))}
+                  onChange={(value) => {
+                    if (
+                      value === "room" ||
+                      value === "fridge" ||
+                      value === "freezer" ||
+                      value === "cooler" ||
+                      value === "thawed" ||
+                      value === "leftover"
+                    ) {
+                      setMilkLocation(value);
+                    }
+                  }}
+                />
               </div>
             ) : null}
           </Card>

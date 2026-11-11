@@ -8,7 +8,7 @@ import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChoiceButtons } from "@/components/option-sheet";
 import { useI18n } from "@/i18n/provider";
 import { scopeFromKey, scopedKey, useScope } from "@/lib/care-queries";
 import { createClient } from "@/lib/supabase/client";
@@ -205,23 +205,17 @@ export default function FamilyPage() {
             <Card className="gap-3 p-4">
               <h2 className="text-sm font-semibold">{t("family.invite")}</h2>
               <p className="text-sm leading-6 text-muted">{t("family.invites")}</p>
-              <div className="flex flex-col gap-2 text-sm font-semibold">
-                <label htmlFor="invite-role">{t("family.role")}</label>
-                <Select
-                  value={inviteRole}
-                  onValueChange={(value) => {
-                    if (value === "caregiver" || value === "viewer") setInviteRole(value);
-                  }}
-                >
-                  <SelectTrigger id="invite-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="caregiver">{t("family.caregiver")}</SelectItem>
-                    <SelectItem value="viewer">{t("family.viewer")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <ChoiceButtons
+                label={t("family.role")}
+                value={inviteRole}
+                options={[
+                  { value: "caregiver", label: t("family.caregiver") },
+                  { value: "viewer", label: t("family.viewer") },
+                ]}
+                onChange={(value) => {
+                  if (value === "caregiver" || value === "viewer") setInviteRole(value);
+                }}
+              />
               <Button type="button" onClick={() => void createInvite()} disabled={pending !== null} aria-busy={pending === "invite"}>
                 {pending === "invite" ? <SavingLabel label={t("common.saving")} /> : t("family.create")}
               </Button>

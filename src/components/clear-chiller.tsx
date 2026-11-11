@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/provider";
+import { useQueryClient } from "@tanstack/react-query";
+import { clearChillerItem, invalidateChiller, restoreChillerCache } from "@/lib/chiller-cache";
 import { markChillerCleared, markChillerRestored } from "@/lib/device-care";
 import type { ClearReason } from "@/lib/chiller-live";
 import { createClient } from "@/lib/supabase/client";
@@ -40,8 +42,8 @@ export function useChillerUndo() {
   return { items, show, dismiss };
 }
 
-export async function restoreChillerItems(items: UndoItem[]) {
-  if (items.length === 0) return true;
+export async function restoreChillerItems(items: UndoItem[], familyId?: string | null) {
+  if (items.length === 0) return { ok: true as const, familyId: familyId ?? null };
   const supabase = createClient();
   const now = new Date().toISOString();
   const { error } = await supabase
@@ -51,7 +53,7 @@ export async function restoreChillerItems(items: UndoItem[]) {
       "id",
       items.map((item) => item.id),
     );
-  if (error) return false;
+  if (error) return { ok: false as const, familyId: familyId ?? null };
   const expiredMilk = items.filter(
     (item) => item.type === "milk" && new Date(item.expiresAt).getTime() <= Date.now(),
   );
@@ -65,7 +67,7 @@ export async function restoreChillerItems(items: UndoItem[]) {
       );
   }
   for (const item of items) markChillerRestored(item.id);
-  return true;
+  return { ok: true as const, familyId: familyId ?? null };
 }
 
 export function ChillerUndoToast({
@@ -90,8 +92,8 @@ export function ChillerUndoToast({
       action: {
         label: t("chiller.undo"),
         onClick: () => {
-          void restoreChillerItems(snapshot).then((ok) => {
-            if (ok) done.current();
+          void restoreChillerItems(snapshot).then((result) => {
+            if (result.ok) done.current();
           });
         },
       },
@@ -107,13 +109,16 @@ export function ChillerUndoToast({
 export function ClearChiller({
   id,
   type,
+  familyId,
   onCleared,
 }: {
   id: string;
   type: "milk" | "pump_parts";
+  familyId?: string | null;
   onCleared: (reason: ClearReason) => void;
 }) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const lock = useRef(false);
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState<ClearReason | null>(null);
@@ -134,16 +139,19 @@ export function ClearChiller({
         return;
       }
       const clearedAt = new Date().toISOString();
+      clearChillerItem(queryClient, familyId, id, clearedAt, reason);
       const { error } = await supabase
         .from("chiller_items")
         .update({ cleared_at: clearedAt, cleared_reason: reason, cleared_by: userId })
         .eq("id", id)
         .is("cleared_at", null);
       if (error) {
+        await invalidateChiller(queryClient, familyId);
         setMessage(t("common.failed"));
         return;
       }
       markChillerCleared(id, clearedAt, reason);
+      await invalidateChiller(queryClient, familyId);
       onCleared(reason);
     } finally {
       lock.current = false;

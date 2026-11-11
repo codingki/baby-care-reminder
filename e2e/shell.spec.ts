@@ -31,7 +31,6 @@ test("backdrop closes the dialog and inside controls do not", async ({ page }) =
   await page.getByRole("button", { name: "Add baby" }).click();
   await page.getByLabel("Birth date").click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByLabel("Sex").click();
   await page.getByRole("option", { name: "Female" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.locator("[data-slot=dialog-backdrop]").click({ position: { x: 12, y: 12 } });

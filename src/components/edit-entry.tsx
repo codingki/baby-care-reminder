@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -12,7 +13,9 @@ import { useI18n } from "@/i18n/provider";
 import { formatDecimal, parseDecimal } from "@/lib/decimal";
 import { milkExpiresAt } from "@/lib/storage-rules";
 import { createClient } from "@/lib/supabase/client";
-import type { ChillerLocation } from "@/lib/device-care";
+import { clearChillerItem, dropChillerItem, invalidateChiller, upsertChillerItem } from "@/lib/chiller-cache";
+import { forgetChillerItem, markChillerCleared, type ChillerLocation } from "@/lib/device-care";
+import type { ClearReason, LiveChillerItem } from "@/lib/chiller-live";
 
 export type LogEdit = {
   id: string;
@@ -34,12 +37,14 @@ export type ChillerEdit = {
 export function EditEntryDialog({
   log,
   chiller,
+  familyId,
   washByHours,
   onClose,
   onSaved,
 }: {
   log: LogEdit | null;
   chiller: ChillerEdit | null;
+  familyId?: string | null;
   washByHours: number;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -50,7 +55,14 @@ export function EditEntryDialog({
       <DialogContent showCloseButton={false}>
         {log ? <LogEditor key={log.id} entry={log} onClose={onClose} onSaved={onSaved} /> : null}
         {chiller ? (
-          <ChillerEditor key={chiller.id} entry={chiller} washByHours={washByHours} onClose={onClose} onSaved={onSaved} />
+          <ChillerEditor
+            key={chiller.id}
+            entry={chiller}
+            familyId={familyId ?? null}
+            washByHours={washByHours}
+            onClose={onClose}
+            onSaved={onSaved}
+          />
         ) : null}
       </DialogContent>
     </Dialog>
@@ -149,16 +161,19 @@ function LogEditor({
 
 function ChillerEditor({
   entry,
+  familyId,
   washByHours,
   onClose,
   onSaved,
 }: {
   entry: ChillerEdit;
+  familyId: string | null;
   washByHours: number;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
   const { locale, t } = useI18n();
+  const queryClient = useQueryClient();
   const { when, setWhen } = useWhen(entry.storedAt);
   const [volume, setVolume] = useState(entry.volumeMl ? formatDecimal(entry.volumeMl, locale) : "");
   const [note, setNote] = useState(entry.note ?? "");
@@ -182,6 +197,14 @@ function ChillerEditor({
       }
       volumeMl = Math.round(parsed);
     }
+    const previous = dropChillerItem(queryClient, familyId, entry.id);
+    upsertChillerItem(queryClient, familyId, {
+      ...(previous ?? emptyChiller(entry)),
+      storedAt: storedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      volumeMl,
+      note: entry.type === "milk" ? note.trim() || null : null,
+    });
     const supabase = createClient();
     const { error } = await supabase
       .from("chiller_items")
@@ -193,13 +216,57 @@ function ChillerEditor({
       })
       .eq("id", entry.id)
       .is("deleted_at", null);
+    if (error && previous) upsertChillerItem(queryClient, familyId, previous);
     setPending(null);
     if (error) {
       toast(error.message || t("common.failed"));
       return;
     }
+    await invalidateChiller(queryClient, familyId);
     await onSaved();
     onClose();
+  }
+
+  async function clear(reason: ClearReason) {
+    setPending("save");
+    const supabase = createClient();
+    const { data } = await supabase.auth.getUser();
+    const userId = data.user?.id;
+    if (!userId) {
+      setPending(null);
+      toast(t("common.failed"));
+      return;
+    }
+    const clearedAt = new Date().toISOString();
+    clearChillerItem(queryClient, familyId, entry.id, clearedAt, reason);
+    const { error } = await supabase
+      .from("chiller_items")
+      .update({ cleared_at: clearedAt, cleared_reason: reason, cleared_by: userId })
+      .eq("id", entry.id)
+      .is("cleared_at", null)
+      .is("deleted_at", null);
+    setPending(null);
+    if (error) {
+      await invalidateChiller(queryClient, familyId);
+      toast(error.message || t("common.failed"));
+      return;
+    }
+    markChillerCleared(entry.id, clearedAt, reason);
+    await invalidateChiller(queryClient, familyId);
+    await onSaved();
+    onClose();
+    toast(t("chiller.cleared"), {
+      action: {
+        label: t("chiller.undo"),
+        onClick: () => {
+          void supabase
+            .from("chiller_items")
+            .update({ cleared_at: null, cleared_reason: null, cleared_by: null })
+            .eq("id", entry.id)
+            .then(() => invalidateChiller(queryClient, familyId));
+        },
+      },
+    });
   }
 
   return (
@@ -213,6 +280,8 @@ function ChillerEditor({
         void softDelete({
           table: "chiller_items",
           id: entry.id,
+          familyId,
+          queryClient,
           t,
           setPending,
           onClose,
@@ -233,9 +302,34 @@ function ChillerEditor({
           </label>
         </div>
       ) : null}
+      <div className="flex flex-wrap gap-2">
+        {(entry.type === "milk" ? (["used", "discarded"] as const) : (["washed"] as const)).map((reason) => (
+          <Button key={reason} type="button" variant="outline" className="min-h-12" onClick={() => void clear(reason)}>
+            {t(`chiller.${reason}`)}
+          </Button>
+        ))}
+      </div>
       <WhenField when={when} onChange={setWhen} />
     </EditorFrame>
   );
+}
+
+function emptyChiller(entry: ChillerEdit): LiveChillerItem {
+  return {
+    id: entry.id,
+    type: entry.type,
+    location: entry.location,
+    storedAt: entry.storedAt,
+    expiresAt: entry.storedAt,
+    pumpId: null,
+    volumeMl: entry.volumeMl,
+    note: entry.note,
+    pumpName: null,
+    babyId: null,
+    babyName: null,
+    clearedAt: null,
+    clearedReason: null,
+  };
 }
 
 function EditorFrame({
@@ -292,6 +386,8 @@ function EditorFrame({
 async function softDelete({
   table,
   id,
+  familyId,
+  queryClient,
   t,
   setPending,
   onClose,
@@ -299,31 +395,41 @@ async function softDelete({
 }: {
   table: "logs" | "chiller_items" | "weight_logs";
   id: string;
+  familyId?: string | null;
+  queryClient?: QueryClient;
   t: (key: "common.failed" | "edit.deleted" | "chiller.undo") => string;
   setPending: (value: "save" | "delete" | null) => void;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
   setPending("delete");
+  const removed = table === "chiller_items" && queryClient ? dropChillerItem(queryClient, familyId, id) : null;
+  if (table === "chiller_items") forgetChillerItem(id);
   const supabase = createClient();
   const deletedAt = new Date().toISOString();
-  const { error } = await supabase.from(table).update({ deleted_at: deletedAt }).eq("id", id);
+  const { error } = await supabase.from(table).update({ deleted_at: deletedAt }).eq("id", id).is("deleted_at", null);
   setPending(null);
   if (error) {
+    if (removed && queryClient) upsertChillerItem(queryClient, familyId, removed);
     toast(error.message || t("common.failed"));
     return;
   }
+  if (familyId && queryClient) await invalidateChiller(queryClient, familyId);
   await onSaved();
   onClose();
   toast(t("edit.deleted"), {
     action: {
       label: t("chiller.undo"),
       onClick: () => {
+        if (removed && queryClient) upsertChillerItem(queryClient, familyId, removed);
         void supabase
           .from(table)
           .update({ deleted_at: null })
           .eq("id", id)
-          .then(() => onSaved());
+          .then(() => {
+            if (familyId && queryClient) void invalidateChiller(queryClient, familyId);
+            return onSaved();
+          });
       },
     },
   });

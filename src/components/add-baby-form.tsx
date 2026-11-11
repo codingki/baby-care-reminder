@@ -7,7 +7,7 @@ import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { DecimalInput } from "@/components/decimal-input";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChoiceButtons } from "@/components/option-sheet";
 import { useI18n } from "@/i18n/provider";
 import { parseDecimal } from "@/lib/decimal";
 import { useQueryClient } from "@tanstack/react-query";
@@ -120,26 +120,14 @@ export function AddBabyForm({
           onChange={(event) => setBirthDate(event.target.value)}
         />
       </label>
-      <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-sex`}>
-        {t("onboarding.sex")}
-        <Select
-          value={sex}
-          onValueChange={(value) => {
-            if (value === "female" || value === "male" || value === "unspecified") setSex(value);
-          }}
-        >
-          <SelectTrigger id={`${idPrefix}-sex`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {sexes.map((option) => (
-              <SelectItem key={option} value={option}>
-                {t(`onboarding.${option}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </label>
+      <ChoiceButtons
+        label={t("onboarding.sex")}
+        value={sex}
+        options={sexes.map((option) => ({ value: option, label: t(`onboarding.${option}`) }))}
+        onChange={(value) => {
+          if (value === "female" || value === "male" || value === "unspecified") setSex(value);
+        }}
+      />
       <label className="flex flex-col gap-2 text-sm font-semibold" htmlFor={`${idPrefix}-weight`}>
         {t("onboarding.weightKg")}
         <DecimalInput

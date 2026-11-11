@@ -246,6 +246,11 @@ export function replaceStoredPumpParts(pumpId: string, clearedAt: string) {
   });
 }
 
+export function forgetChillerItem(id: string) {
+  const current = readCare();
+  writeCare({ ...current, items: current.items.filter((item) => item.id !== id) });
+}
+
 export function rememberChillerItem(item: ChillerItem) {
   const current = readCare();
   writeCare({
