@@ -3,12 +3,13 @@ import {
   replaceStoredPumpParts,
   type ChillerLocation,
 } from "@/lib/device-care";
-import { loadFamilyContext } from "@/lib/family-context";
+import { loadFamilyContext, peekFamilyContext } from "@/lib/family-context";
 import { enqueue, readQueue, replaceQueue, type QueueKind } from "@/lib/offline-queue";
 import { milkExpiresAt } from "@/lib/storage-rules";
 import { createClient } from "@/lib/supabase/client";
 
 export type LogInput = {
+  id?: string;
   kind: "diaper" | "feed" | "pump";
   diaperKind?: "wet" | "dirty" | "mixed";
   poopColor?: "yellow" | "green" | "brown" | "black" | "red" | "white";
@@ -38,10 +39,11 @@ async function writeRow(kind: QueueKind, row: Record<string, unknown>) {
     enqueue(kind, row);
     return "queued" as const;
   }
-  const table = kind === "log" ? "logs" : kind === "pump" ? "family_pumps" : "chiller_items";
+  const table =
+    kind === "log" ? "logs" : kind === "pump" ? "family_pumps" : kind === "weight" ? "weight_logs" : "chiller_items";
   const supabase = createClient();
-  const { error } = await supabase.from(table).insert(row);
-  if (!error) return "synced" as const;
+  const { error } = await supabase.from(table).upsert(row, { onConflict: "id", ignoreDuplicates: true });
+  if (!error || error.code === "23505") return "synced" as const;
   if (shouldQueue(error)) {
     enqueue(kind, row);
     return "queued" as const;
@@ -50,12 +52,13 @@ async function writeRow(kind: QueueKind, row: Record<string, unknown>) {
 }
 
 export async function saveLog(input: LogInput): Promise<"synced" | "queued" | "needs-family" | "error"> {
-  const context = await loadFamilyContext();
+  const context = peekFamilyContext() ?? (await loadFamilyContext());
   if (!context?.babyId) return "needs-family";
 
   const breast = input.kind === "feed" && input.feedKind === "breast";
   const dirty = input.kind === "diaper" && (input.diaperKind === "dirty" || input.diaperKind === "mixed");
   const row: Record<string, unknown> = {
+    id: input.id ?? crypto.randomUUID(),
     baby_id: context.babyId,
     family_id: context.familyId,
     logged_by: context.userId,
@@ -83,9 +86,10 @@ export async function saveChillerItem(input: {
   note?: string | null;
   babyId?: string | null;
   storedAt?: string;
+  id?: string;
 }): Promise<{ status: "synced" | "queued" | "error"; id: string }> {
-  const id = crypto.randomUUID();
-  const context = await loadFamilyContext();
+  const id = input.id ?? crypto.randomUUID();
+  const context = peekFamilyContext() ?? (await loadFamilyContext());
   const storedAt = input.storedAt ? new Date(input.storedAt) : new Date();
   const expiresAt =
     input.type === "milk"
@@ -125,6 +129,25 @@ export async function saveChillerItem(input: {
   return { status, id };
 }
 
+export async function saveWeight(input: {
+  id?: string;
+  grams: number;
+  weighedOn: string;
+}): Promise<{ status: "synced" | "queued" | "error" | "needs-family"; id: string }> {
+  const id = input.id ?? crypto.randomUUID();
+  const context = peekFamilyContext() ?? (await loadFamilyContext());
+  if (!context?.babyId) return { status: "needs-family", id };
+  const status = await writeRow("weight", {
+    id,
+    baby_id: context.babyId,
+    family_id: context.familyId,
+    logged_by: context.userId,
+    weight_grams: input.grams,
+    weighed_on: input.weighedOn,
+  });
+  return { status, id };
+}
+
 export async function saveFamilyPump(row: Record<string, unknown>) {
   return writeRow("pump", row);
 }
@@ -138,15 +161,21 @@ export async function removeFamilyPump(id: string) {
 export async function flushOfflineQueue(): Promise<void> {
   const pending = readQueue();
   if (pending.length === 0) return;
-  const order: Record<QueueKind, number> = { pump: 0, log: 1, chiller: 2 };
+  const order: Record<QueueKind, number> = { pump: 0, log: 1, chiller: 2, weight: 3 };
   const sorted = [...pending].sort((left, right) => order[left.kind] - order[right.kind]);
   const supabase = createClient();
   const left = [];
   for (const item of sorted) {
     const table =
-      item.kind === "log" ? "logs" : item.kind === "pump" ? "family_pumps" : "chiller_items";
-    const { error } = await supabase.from(table).insert(item.row);
-    if (error) left.push(item);
+      item.kind === "log"
+        ? "logs"
+        : item.kind === "pump"
+          ? "family_pumps"
+          : item.kind === "weight"
+            ? "weight_logs"
+            : "chiller_items";
+    const { error } = await supabase.from(table).upsert(item.row, { onConflict: "id", ignoreDuplicates: true });
+    if (error && error.code !== "23505") left.push(item);
   }
   replaceQueue(left);
 }

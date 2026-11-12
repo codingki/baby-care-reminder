@@ -122,28 +122,23 @@ function isCarePath(pathname: string) {
 }
 
 async function setupFinished(supabase: SupabaseClient, userId: string) {
-  const membership = await supabase
+  const { data, error } = await supabase
     .from("family_members")
-    .select("family_id")
+    .select("family_id, families!inner(babies(id)), member_settings(onboarding_step)")
     .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
-  const familyId = membership.data?.family_id;
-  if (membership.error || !familyId) return false;
-
-  const babies = await supabase.from("babies").select("id").eq("family_id", familyId).limit(1).maybeSingle();
-  if (babies.error || !babies.data) return false;
-
-  const settings = await supabase
-    .from("member_settings")
-    .select("onboarding_step")
-    .eq("user_id", userId)
-    .eq("family_id", familyId)
-    .maybeSingle();
-  if (settings.error) {
-    if (/onboarding_step/.test(settings.error.message)) return true;
-    return true;
+  if (error || !data?.family_id) {
+    if (error && /onboarding_step|member_settings|babies/.test(error.message)) return true;
+    return false;
   }
-  const step = typeof settings.data?.onboarding_step === "number" ? settings.data.onboarding_step : 7;
+  const family = data.families as { babies?: { id: string }[] | { id: string } | null } | { babies?: { id: string }[] | { id: string } | null }[] | null;
+  const familyRow = Array.isArray(family) ? family[0] : family;
+  const babies = familyRow?.babies;
+  const hasBaby = Array.isArray(babies) ? babies.length > 0 : Boolean(babies && "id" in babies);
+  if (!hasBaby) return false;
+  const settings = data.member_settings as { onboarding_step?: number } | { onboarding_step?: number }[] | null;
+  const settingsRow = Array.isArray(settings) ? settings[0] : settings;
+  const step = typeof settingsRow?.onboarding_step === "number" ? settingsRow.onboarding_step : 7;
   return step >= 7;
 }

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { LoginForm } from "@/app/login/login-form";
 import { safeNextPath } from "@/lib/safe-next-path";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestClaims } from "@/lib/supabase/request-claims";
 
 type LoginSearch = {
   next?: string | string[];
@@ -32,9 +32,7 @@ async function LoginGate({ searchParams }: { searchParams: Promise<LoginSearch> 
   let signedIn = false;
 
   try {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getClaims();
-    signedIn = Boolean(data?.claims);
+    signedIn = Boolean(await getRequestClaims());
   } catch (error) {
     unstable_rethrow(error);
   }

@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { CareIcon } from "@/components/care-icon";
 import { PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
-import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { DecimalInput } from "@/components/decimal-input";
 import { Input } from "@/components/ui/input";
@@ -14,7 +13,8 @@ import { useWhen, WhenField } from "@/components/when-field";
 import { useI18n } from "@/i18n/provider";
 import { parseDecimal } from "@/lib/decimal";
 import { loadFamilyContext } from "@/lib/family-context";
-import { saveChillerItem } from "@/lib/save-log";
+import { launchChiller, type FailedSave, type SaveSeed } from "@/lib/optimistic-care";
+import { milkExpiresAt } from "@/lib/storage-rules";
 
 const LOCATIONS = ["fridge", "freezer", "cooler"] as const;
 
@@ -33,6 +33,9 @@ export function ChillerSheet({
   activePartPumpIds = [],
   onClose,
   onSaved,
+  seed,
+  notice,
+  onEdit,
 }: {
   open: boolean;
   pumps: SheetPump[];
@@ -41,17 +44,22 @@ export function ChillerSheet({
   activePartPumpIds?: string[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
+  seed?: SaveSeed | null;
+  notice?: string | null;
+  onEdit?: (failed: FailedSave) => void;
 }) {
   const { locale, t } = useI18n();
   const lock = useRef(false);
   const [step, setStep] = useState<Step>("choose");
-  const [pending, setPending] = useState(false);
-  const [milkMl, setMilkMl] = useState("");
-  const [milkNote, setMilkNote] = useState("");
-  const [location, setLocation] = useState<(typeof LOCATIONS)[number]>("fridge");
+  const [milkMl, setMilkMl] = useState(seed?.amount ?? "");
+  const [milkNote, setMilkNote] = useState(seed?.note ?? "");
+  const [location, setLocation] = useState<(typeof LOCATIONS)[number]>(
+    seed?.location === "fridge" || seed?.location === "freezer" || seed?.location === "cooler" ? seed.location : "fridge",
+  );
   const [pumpId, setPumpId] = useState<string>("");
   const [milkBabyId, setMilkBabyId] = useState(defaultBabyId);
-  const [status, setStatus] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(notice ?? null);
+  void onSaved;
   const [unit, setUnit] = useState("ml");
   const { when, setWhen } = useWhen();
 
@@ -66,61 +74,71 @@ export function ChillerSheet({
     });
   }, []);
 
-  async function storeMilk() {
+  function storeMilk() {
     if (lock.current || milkAmount === null || milkAmount <= 0) return;
     lock.current = true;
-    setPending(true);
-    setStatus(null);
-    try {
-      const context = await loadFamilyContext();
-      const saved = await saveChillerItem({
+    const id = seed?.id || crypto.randomUUID();
+    const storedAt = when.toISOString();
+    const ml = volumeToMl(milkAmount, unit);
+    launchChiller({
+      item: {
+        id,
         type: "milk",
         location,
-        volumeMl: volumeToMl(milkAmount, unit),
+        storedAt,
+        expiresAt: milkExpiresAt(when, location).toISOString(),
         pumpId: null,
-        washByHours: context?.washByHours ?? 24,
-        note: milkNote,
+        volumeMl: ml,
+        note: milkNote.trim() || null,
+        pumpName: null,
         babyId: milkBabyId || null,
-        storedAt: when.toISOString(),
-      });
-      if (saved.status === "error") {
-        setStatus(t("common.failed"));
-        return;
-      }
-      await onSaved();
-      onClose();
-    } finally {
-      lock.current = false;
-      setPending(false);
-    }
+        babyName: babies.find((baby) => baby.id === milkBabyId)?.name ?? null,
+        clearedAt: null,
+        clearedReason: null,
+        pending: true,
+      },
+      seed: { id, amount: milkMl, note: milkNote, location, babyId: milkBabyId, when: storedAt },
+      title: t("chiller.milk"),
+      failText: t("common.failed"),
+      retryText: t("common.retry"),
+      washByHours: 24,
+      onClose,
+      onEdit: onEdit ?? (() => undefined),
+    });
   }
 
-  async function storeParts() {
+  function storeParts() {
     if (lock.current || !selectedPump) return;
     lock.current = true;
-    setPending(true);
-    setStatus(null);
-    try {
-      const context = await loadFamilyContext();
-      const saved = await saveChillerItem({
+    const id = seed?.id || crypto.randomUUID();
+    const storedAt = when.toISOString();
+    const pump = pumps.find((item) => item.id === selectedPump);
+    launchChiller({
+      item: {
+        id,
         type: "pump_parts",
         location: "fridge",
-        volumeMl: null,
+        storedAt,
+        expiresAt: new Date(when.getTime() + 24 * 60 * 60 * 1000).toISOString(),
         pumpId: selectedPump,
-        washByHours: context?.washByHours ?? 24,
-        storedAt: when.toISOString(),
-      });
-      if (saved.status === "error") {
-        setStatus(t("common.failed"));
-        return;
-      }
-      if (activePartPumpIds.includes(selectedPump)) toast(t("chiller.partsUpdated"));
-      await onSaved();
-      onClose();
-    } finally {
-      lock.current = false;
-      setPending(false);
-    }
+        volumeMl: null,
+        note: null,
+        pumpName: pump?.label ?? null,
+        babyId: null,
+        babyName: null,
+        clearedAt: null,
+        clearedReason: null,
+        pending: true,
+      },
+      seed: { id, pumpId: selectedPump, when: storedAt },
+      title: t("chiller.parts"),
+      failText: t("common.failed"),
+      retryText: t("common.retry"),
+      washByHours: 24,
+      onClose,
+      onEdit: onEdit ?? (() => undefined),
+    });
+    if (activePartPumpIds.includes(selectedPump)) toast(t("chiller.partsUpdated"));
   }
 
   if (!open) return null;
@@ -283,12 +301,12 @@ export function ChillerSheet({
               </p>
             ) : null}
             {step === "milk" ? (
-              <Button type="submit" form="chiller-milk" disabled={pending || !milkReady} aria-busy={pending}>
-                {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+              <Button type="submit" form="chiller-milk" disabled={!milkReady}>
+                {t("common.save")}
               </Button>
             ) : (
-              <Button type="submit" form="chiller-parts" disabled={pending || !selectedPump} aria-busy={pending}>
-                {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+              <Button type="submit" form="chiller-parts" disabled={!selectedPump}>
+                {t("common.save")}
               </Button>
             )}
           </div>

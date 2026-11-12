@@ -26,6 +26,7 @@ import { loadRemotePumps } from "@/lib/family-pumps";
 import { readQueue } from "@/lib/offline-queue";
 import { formatSpan, nowMs } from "@/lib/relative-time";
 import { QuickLogDialog, type QuickLogKind } from "@/components/quick-log-dialog";
+import { SAVE_FAILURES_KEY, type FailedSave } from "@/lib/optimistic-care";
 import { chooseBaby } from "@/lib/selected-baby";
 import { createClient } from "@/lib/supabase/client";
 
@@ -75,6 +76,7 @@ type ChillerRow = {
   volumeMl: number | null;
   pumpId: string | null;
   note: string | null;
+  pending?: boolean;
 };
 
 type LogRow = {
@@ -88,6 +90,7 @@ type LogRow = {
   breastSide: string | null;
   poopColor: string | null;
   poopAmount: string | null;
+  pending?: boolean;
 };
 
 type LogKind = "diaper" | "feed" | "pump";
@@ -172,6 +175,7 @@ export function HomeDashboard() {
   const [seenLog, setSeenLog] = useState(requestedLog);
   const [queuedBaby, setQueuedBaby] = useState<string | null>(requestedBaby);
   const [log, setLog] = useState<QuickLogKind | null>(requestedLog);
+  const [restore, setRestore] = useState<FailedSave | null>(null);
   const [editing, setEditing] = useState<{ log: LogEdit | null; chiller: ChillerEdit | null } | null>(null);
   if (requestedLog !== seenLog) {
     setSeenLog(requestedLog);
@@ -334,6 +338,7 @@ export function HomeDashboard() {
       volumeMl: item.volumeMl,
       pumpId: item.pumpId,
       note: item.note ?? null,
+      pending: item.pending,
     }));
   const logs = view?.logs ?? [];
   const pumps = view?.pumps ?? [];
@@ -415,15 +420,17 @@ export function HomeDashboard() {
     },
   ];
 
-  const closeLog = useCallback(() => setLog(null), []);
-  const refreshHome = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ["home"] });
-    await queryClient.invalidateQueries({ queryKey: ["chiller"] });
-    await queryClient.invalidateQueries({ queryKey: ["timeline"] });
-    await queryClient.invalidateQueries({ queryKey: ["insights"] });
-    await queryClient.invalidateQueries({ queryKey: ["family"] });
-    await queryClient.invalidateQueries({ queryKey: ["weights"] });
-  }, [queryClient]);
+  const closeLog = useCallback(() => {
+    setLog(null);
+    setRestore(null);
+  }, []);
+  const failures = queryClient.getQueryData<FailedSave[]>(SAVE_FAILURES_KEY) ?? [];
+  const openFailure = useCallback((failed: FailedSave) => {
+    setRestore(failed);
+    if (failed.sheet === "feed" || failed.sheet === "diaper" || failed.sheet === "dbf" || failed.sheet === "pump" || failed.sheet === "weight" || failed.sheet === "chiller") {
+      setLog(failed.sheet);
+    }
+  }, []);
   const sheetPumps: SheetPump[] = mergedPumps.map((pump) => ({ id: pump.id, label: pumpLabel(pump) }));
   const quick: { key: QuickLogKind; icon: CareIconName; label: string }[] = [
     { key: "diaper", icon: "diaper", label: t("home.diaper") },
@@ -584,6 +591,9 @@ export function HomeDashboard() {
                       className={`h-6 w-6 shrink-0 ${expired ? "text-danger" : "text-accent"}`}
                     />
                     <p className={`min-w-0 flex-1 text-sm font-semibold ${expired ? "text-danger" : ""}`}>{label}</p>
+                    {"pending" in item && item.pending ? (
+                      <span className="shrink-0 text-xs text-muted/70">{t("common.saving")}</span>
+                    ) : null}
                     {expired ? (
                       <Badge variant="danger" className="h-auto shrink-0 px-1.5 py-0 text-sm">
                         {left}
@@ -655,7 +665,18 @@ export function HomeDashboard() {
             {t("home.seeAll")}
           </Link>
         </div>
-        {activities.length === 0 ? (
+        {failures.map((failed) => (
+          <button
+            key={failed.id}
+            type="button"
+            onClick={() => openFailure(failed)}
+            className={`${SOFT} flex w-full items-center justify-between gap-3 px-4 py-3 text-left`}
+          >
+            <span className="text-sm font-semibold">{failed.title}</span>
+            <span className="text-xs text-muted/70">{t("common.retry")}</span>
+          </button>
+        ))}
+        {activities.length === 0 && failures.length === 0 ? (
           <p className={`${SOFT} px-4 py-4 text-sm text-muted`}>{t("home.recentEmpty")}</p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -671,8 +692,8 @@ export function HomeDashboard() {
                     <p className="text-sm font-semibold">{item.title}</p>
                     {item.detail ? <p className="truncate text-sm text-muted">{item.detail}</p> : null}
                   </div>
-                  <p className="max-w-[7.5rem] shrink-0 text-right text-xs leading-4 text-muted">
-                    {activityWhen(item.at, locale, t)}
+                  <p className={`max-w-[7.5rem] shrink-0 text-right text-xs leading-4 ${item.pending ? "text-muted/70" : "text-muted"}`}>
+                    {item.pending ? t("common.saving") : activityWhen(item.at, locale, t)}
                   </p>
                 </button>
               </li>
@@ -690,7 +711,10 @@ export function HomeDashboard() {
           item.type === "pump_parts" && item.pumpId ? [item.pumpId] : [],
         )}
         onClose={closeLog}
-        onSaved={refreshHome}
+        onSaved={async () => undefined}
+        seed={restore && restore.sheet === log ? restore.seed : null}
+        notice={restore && restore.sheet === log ? t("common.failed") : null}
+        onEdit={openFailure}
       />
       <EditEntryDialog
         log={editing?.log ?? null}
@@ -698,7 +722,7 @@ export function HomeDashboard() {
         familyId={familyId}
         washByHours={24}
         onClose={() => setEditing(null)}
-        onSaved={refreshHome}
+        onSaved={async () => undefined}
       />
     </section>
   );
@@ -749,12 +773,36 @@ function buildActivity(
     icon: CareIconName;
     title: string;
     detail: string;
+    pending?: boolean;
     log: LogEdit | null;
     chiller: ChillerEdit | null;
   }[] = [
     ...queued.filter((log) => !seen.has(log.id)),
     ...logs,
-  ].flatMap((log) => {
+  ].flatMap((log): {
+    id: string;
+    at: string;
+    icon: CareIconName;
+    title: string;
+    detail: string;
+    pending?: boolean;
+    log: LogEdit | null;
+    chiller: ChillerEdit | null;
+  }[] => {
+    if (log.kind === "weight") {
+      return [
+        {
+          id: log.id,
+          at: log.occurredAt,
+          icon: "weight" as const,
+          title: t("home.weight"),
+          detail: log.amountMl ? `${(log.amountMl / 1000).toFixed(2)} kg` : "",
+          pending: log.pending,
+          log: null,
+          chiller: null,
+        },
+      ];
+    }
     const kind = activityKind(log.kind);
     if (!kind) return [];
     const breast = log.feedKind === "breast";
@@ -766,6 +814,7 @@ function buildActivity(
         icon: breast ? "dbf" : kind,
         title: breast ? `${t("home.dbf")} · ${detail}` : t(titleKey(kind)),
         detail: breast ? "" : detail,
+        pending: log.pending,
         log: {
           id: log.id,
           kind: log.kind,
@@ -791,6 +840,7 @@ function buildActivity(
       icon: "chiller",
       title: item.type === "milk" ? t("chiller.milk") : t("chiller.parts"),
       detail,
+      pending: "pending" in item && Boolean((item as { pending?: boolean }).pending),
       log: null,
       chiller: {
         id: item.id,

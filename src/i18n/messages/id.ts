@@ -102,6 +102,7 @@ export const id = {
     failed: "Tidak tersimpan.",
     loading: "Memuat…",
     saving: "Menyimpan…",
+    retry: "Coba lagi",
     search: "Cari",
     choose: "Pilih",
   },

@@ -8,20 +8,19 @@ import { CareIcon } from "@/components/care-icon";
 import { DecimalInput } from "@/components/decimal-input";
 import { MINUTE_PRESETS, PresetChips, volumePresets, volumeToMl } from "@/components/preset-chips";
 import { PartsDisclaimer } from "@/components/parts-disclaimer";
-import { SavingLabel } from "@/components/saving-label";
 import { Button } from "@/components/ui/button";
 import { toWhenInput, WhenField, useWhen } from "@/components/when-field";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ChoiceButtons, OptionSheet } from "@/components/option-sheet";
 import { Switch } from "@/components/ui/switch";
-import { useSaveLock } from "@/components/use-save-lock";
 import { useCareStore } from "@/components/use-care-store";
 import { useI18n } from "@/i18n/provider";
 import { parseDecimal } from "@/lib/decimal";
 import type { Locale } from "@/i18n/locales";
 import { loadFamilyContext } from "@/lib/family-context";
-import { saveChillerItem, saveLog } from "@/lib/save-log";
+import { launchChiller, launchLog, launchWeight, type FailedSave, type SaveSeed } from "@/lib/optimistic-care";
+import { milkExpiresAt } from "@/lib/storage-rules";
 import {
   CHILLER_LOCATIONS,
   markPumpUsed,
@@ -29,10 +28,6 @@ import {
   pumpLabel,
   type ChillerLocation,
 } from "@/lib/device-care";
-import { createClient } from "@/lib/supabase/client";
-
-type LogResult = "synced" | "queued" | "error" | "needs-family";
-
 function todayInput() {
   const date = new Date();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -40,39 +35,24 @@ function todayInput() {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-async function finishLog(
-  result: LogResult,
-  t: (key: "common.failed") => string,
-  router: { push: (href: string) => void },
-  setMessage: (message: string) => void,
-  onSaved: () => Promise<void>,
-  onClose: () => void,
-) {
-  if (result === "needs-family") {
-    onClose();
-    router.push("/onboarding");
-    return;
-  }
-  if (result === "error") {
-    setMessage(t("common.failed"));
-    toast(t("common.failed"));
-    return;
-  }
-  await onSaved();
-  onClose();
-}
+type LogExtras = {
+  seed?: SaveSeed | null;
+  notice?: string | null;
+  onEdit?: (failed: FailedSave) => void;
+};
 
 const field = "safe-x min-h-0 w-full min-w-0 max-w-full overflow-x-hidden overflow-y-auto overscroll-contain pt-1 pb-4";
 const footer = "safe-x flex shrink-0 flex-col gap-2 border-t border-line bg-background pt-3";
 
-export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
+export function FeedLog({ onClose, onSaved, seed, notice, onEdit }: { onClose: () => void; onSaved: () => Promise<void> } & LogExtras) {
   const { locale, t } = useI18n();
   const router = useRouter();
-  const { pending, run } = useSaveLock();
-  const [amount, setAmount] = useState("");
-  const [unit, setUnit] = useState("ml");
-  const { when, setWhen } = useWhen();
-  const [message, setMessage] = useState<string | null>(null);
+  const lock = useRef(false);
+  const [amount, setAmount] = useState(seed?.amount ?? "");
+  const [unit, setUnit] = useState(seed?.unit ?? "ml");
+  const { when, setWhen } = useWhen(seed?.when);
+  const [message, setMessage] = useState<string | null>(notice ?? null);
+  void onSaved;
 
   useEffect(() => {
     void loadFamilyContext().then((context) => {
@@ -83,11 +63,23 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
   async function save() {
     const entered = parseDecimal(amount);
     if (entered === null || entered <= 0) return;
+    if (lock.current) return;
+    lock.current = true;
     const ml = volumeToMl(entered, unit);
-    setMessage(null);
-    await run(async () => {
-      const result = await saveLog({ kind: "feed", amountMl: Math.round(ml), occurredAt: when.toISOString() });
-      await finishLog(result, t, router, setMessage, onSaved, onClose);
+    const id = seed?.id || crypto.randomUUID();
+    launchLog({
+      input: { id, kind: "feed", amountMl: Math.round(ml), occurredAt: when.toISOString() },
+      seed: { id, amount, unit, when: when.toISOString() },
+      sheet: "feed",
+      title: t("home.feed"),
+      failText: t("common.failed"),
+      retryText: t("common.retry"),
+      onClose,
+      onEdit: onEdit ?? (() => undefined),
+      onNeedsFamily: () => {
+        onClose();
+        router.push("/onboarding");
+      },
     });
   }
 
@@ -105,8 +97,8 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
       </div>
       <div data-slot="dialog-footer" className={footer}>
         {message ? <p role="status">{message}</p> : null}
-        <Button type="button" onClick={() => void save()} disabled={pending} aria-busy={pending}>
-          {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+        <Button type="button" onClick={() => void save()}>
+          {t("common.save")}
         </Button>
       </div>
     </>
@@ -115,29 +107,44 @@ export function FeedLog({ onClose, onSaved }: { onClose: () => void; onSaved: ()
 
 const sides = ["left", "right"] as const;
 
-export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
+export function DbfLog({ onClose, onSaved, seed, notice, onEdit }: { onClose: () => void; onSaved: () => Promise<void> } & LogExtras) {
   const { locale, t } = useI18n();
   const router = useRouter();
-  const { pending, run } = useSaveLock();
-  const [side, setSide] = useState<(typeof sides)[number] | null>(null);
-  const { when, setWhen } = useWhen();
-  const [minutes, setMinutes] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const lock = useRef(false);
+  const [side, setSide] = useState<(typeof sides)[number] | null>(
+    seed?.side === "left" || seed?.side === "right" ? seed.side : null,
+  );
+  const { when, setWhen } = useWhen(seed?.when);
+  const [minutes, setMinutes] = useState(seed?.minutes ?? "");
+  const [message, setMessage] = useState<string | null>(notice ?? null);
+  void onSaved;
   const length = parseDecimal(minutes);
   const ready = side !== null && length !== null && length > 0;
 
-  async function save() {
-    if (!ready || !side) return;
-    setMessage(null);
-    await run(async () => {
-      const result = await saveLog({
+  function save() {
+    if (!ready || !side || length === null || lock.current) return;
+    lock.current = true;
+    const id = seed?.id || crypto.randomUUID();
+    launchLog({
+      input: {
+        id,
         kind: "feed",
         feedKind: "breast",
         breastSide: side,
         durationSeconds: Math.round(length * 60),
         occurredAt: when.toISOString(),
-      });
-      await finishLog(result, t, router, setMessage, onSaved, onClose);
+      },
+      seed: { id, side, minutes, when: when.toISOString() },
+      sheet: "dbf",
+      title: t("home.dbf"),
+      failText: t("common.failed"),
+      retryText: t("common.retry"),
+      onClose,
+      onEdit: onEdit ?? (() => undefined),
+      onNeedsFamily: () => {
+        onClose();
+        router.push("/onboarding");
+      },
     });
   }
 
@@ -175,8 +182,8 @@ export function DbfLog({ onClose, onSaved }: { onClose: () => void; onSaved: () 
       </div>
       <div data-slot="dialog-footer" className={footer}>
         {message ? <p role="status">{message}</p> : null}
-        <Button type="button" onClick={() => void save()} disabled={pending || !ready} aria-busy={pending}>
-          {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+        <Button type="button" onClick={() => save()} disabled={!ready}>
+          {t("common.save")}
         </Button>
       </div>
     </>
@@ -204,37 +211,52 @@ type DiaperKind = "wet" | "dirty" | "mixed";
 type PoopColor = (typeof poopColors)[number]["key"];
 type PoopAmount = (typeof poopAmounts)[number];
 
-export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
+export function DiaperLog({ onClose, onSaved, seed, notice, onEdit }: { onClose: () => void; onSaved: () => Promise<void> } & LogExtras) {
   const { t } = useI18n();
   const router = useRouter();
   const lock = useRef(false);
-  const [pending, setPending] = useState(false);
-  const [kind, setKind] = useState<DiaperKind | null>(null);
-  const [color, setColor] = useState<PoopColor | null>(null);
-  const [amount, setAmount] = useState<PoopAmount | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const { when, setWhen } = useWhen();
+  const [kind, setKind] = useState<DiaperKind | null>(
+    seed?.diaperKind === "wet" || seed?.diaperKind === "dirty" || seed?.diaperKind === "mixed" ? seed.diaperKind : null,
+  );
+  const [color, setColor] = useState<PoopColor | null>((seed?.color as PoopColor | undefined) ?? null);
+  const [amount, setAmount] = useState<PoopAmount | null>((seed?.poopAmount as PoopAmount | undefined) ?? null);
+  const [message, setMessage] = useState<string | null>(notice ?? null);
+  const { when, setWhen } = useWhen(seed?.when);
+  void onSaved;
   const concern = color === "red" || color === "black" || color === "white";
   const detailed = kind === "dirty" || kind === "mixed";
 
-  async function save(diaperKind: DiaperKind, poop?: { color: PoopColor | null; amount: PoopAmount | null }) {
+  function save(diaperKind: DiaperKind, poop?: { color: PoopColor | null; amount: PoopAmount | null }) {
     if (lock.current) return;
     lock.current = true;
-    setPending(true);
-    setMessage(null);
-    try {
-      const result = await saveLog({
+    const id = seed?.id || crypto.randomUUID();
+    launchLog({
+      input: {
+        id,
         kind: "diaper",
         diaperKind,
         poopColor: poop?.color ?? undefined,
         poopAmount: poop?.amount ?? undefined,
         occurredAt: when.toISOString(),
-      });
-      await finishLog(result, t, router, setMessage, onSaved, onClose);
-    } finally {
-      lock.current = false;
-      setPending(false);
-    }
+      },
+      seed: {
+        id,
+        diaperKind,
+        color: poop?.color ?? "",
+        poopAmount: poop?.amount ?? "",
+        when: when.toISOString(),
+      },
+      sheet: "diaper",
+      title: t("home.diaper"),
+      failText: t("common.failed"),
+      retryText: t("common.retry"),
+      onClose,
+      onEdit: onEdit ?? (() => undefined),
+      onNeedsFamily: () => {
+        onClose();
+        router.push("/onboarding");
+      },
+    });
   }
 
   return (
@@ -247,8 +269,7 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
                 key={choice.key}
                 type="button"
                 variant="outline"
-                disabled={pending}
-                aria-busy={pending && choice.value === "wet"}
+                disabled={false}
                 onClick={() => {
                   if (choice.value === "wet") {
                     setKind("wet");
@@ -262,14 +283,10 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
                 }}
                 className="min-h-16 rounded-3xl text-lg text-accent"
               >
-                {pending && choice.value === "wet" ? (
-                  <SavingLabel label={t("common.saving")} />
-                ) : (
-                  <>
-                    <CareIcon name="diaper" className="h-5 w-5" />
-                    {t(`diaper.${choice.key}`)}
-                  </>
-                )}
+                <>
+                  <CareIcon name="diaper" className="h-5 w-5" />
+                  {t(`diaper.${choice.key}`)}
+                </>
               </Button>
             ))}
           </div>
@@ -348,8 +365,8 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
       {detailed ? (
         <div data-slot="dialog-footer" className={footer}>
           {message ? <p role="status">{message}</p> : null}
-          <Button type="submit" form="diaper-form" disabled={pending} aria-busy={pending}>
-            {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+          <Button type="submit" form="diaper-form">
+            {t("common.save")}
           </Button>
         </div>
       ) : null}
@@ -357,41 +374,37 @@ export function DiaperLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
   );
 }
 
-export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: () => Promise<void> }) {
+export function WeightLog({ onClose, onSaved, seed, notice, onEdit }: { onClose: () => void; onSaved: () => Promise<void> } & LogExtras) {
   const { locale, t } = useI18n();
   const router = useRouter();
-  const { pending, run } = useSaveLock();
-  const [kg, setKg] = useState("");
-  const [date, setDate] = useState(todayInput);
-  const { when, setWhen } = useWhen();
-  const [message, setMessage] = useState<string | null>(null);
+  const lock = useRef(false);
+  const [kg, setKg] = useState(seed?.kg ?? "");
+  const [date, setDate] = useState(seed?.date ?? todayInput);
+  const { when, setWhen } = useWhen(seed?.when);
+  const [message, setMessage] = useState<string | null>(notice ?? null);
+  void onSaved;
   const parsed = parseDecimal(kg);
   const ready = parsed !== null && parsed > 0 && date.length > 0;
 
-  async function save() {
-    if (!ready) return;
-    setMessage(null);
-    await run(async () => {
-      const context = await loadFamilyContext();
-      if (!context?.babyId) {
+  function save() {
+    if (!ready || parsed === null || lock.current) return;
+    lock.current = true;
+    const id = seed?.id || crypto.randomUUID();
+    const weighedOn = toWhenInput(when).slice(0, 10);
+    launchWeight({
+      id,
+      grams: Math.round(parsed * 1000),
+      weighedOn,
+      seed: { id, kg, date, when: when.toISOString() },
+      title: t("home.weight"),
+      failText: t("common.failed"),
+      retryText: t("common.retry"),
+      onClose,
+      onEdit: onEdit ?? (() => undefined),
+      onNeedsFamily: () => {
         onClose();
         router.push("/onboarding");
-        return;
-      }
-      const supabase = createClient();
-      const { error } = await supabase.from("weight_logs").insert({
-        baby_id: context.babyId,
-        family_id: context.familyId,
-        logged_by: context.userId,
-        weight_grams: Math.round((parsed ?? 0) * 1000),
-        weighed_on: toWhenInput(when).slice(0, 10),
-      });
-      if (error) {
-        setMessage(t("common.failed"));
-        return;
-      }
-      await onSaved();
-      onClose();
+      },
     });
   }
 
@@ -418,8 +431,8 @@ export function WeightLog({ onClose, onSaved }: { onClose: () => void; onSaved: 
       </div>
       <div data-slot="dialog-footer" className={footer}>
         {message ? <p role="status">{message}</p> : null}
-        <Button type="button" onClick={() => void save()} disabled={pending || !ready} aria-busy={pending}>
-          {pending ? <SavingLabel label={t("common.saving")} /> : t("common.save")}
+        <Button type="button" onClick={() => save()} disabled={!ready}>
+          {t("common.save")}
         </Button>
       </div>
     </>
@@ -439,27 +452,32 @@ export function PumpLog({
   onClose,
   onSaved,
   activePartPumpIds = [],
+  seed,
+  notice,
+  onEdit,
 }: {
   onClose: () => void;
   onSaved: () => Promise<void>;
   activePartPumpIds?: string[];
-}) {
+} & LogExtras) {
   const { locale, t } = useI18n();
   const router = useRouter();
   const care = useCareStore();
-  const [status, setStatus] = useState<string | null>(null);
-  const [pumpedMl, setPumpedMl] = useState("");
-  const [minutes, setMinutes] = useState("");
+  const [status, setStatus] = useState<string | null>(notice ?? null);
+  const [pumpedMl, setPumpedMl] = useState(seed?.amount ?? "");
+  const [minutes, setMinutes] = useState(seed?.minutes ?? "");
   const [logged, setLogged] = useState(false);
   const [storeParts, setStoreParts] = useState(false);
   const [saveMilk, setSaveMilk] = useState(false);
-  const [pumpId, setPumpId] = useState<string | null>(null);
-  const [volume, setVolume] = useState("");
-  const [milkLocation, setMilkLocation] = useState<ChillerLocation>("fridge");
-  const [pending, setPending] = useState<"log" | "chiller" | null>(null);
-  const [unit, setUnit] = useState("ml");
+  const [pumpId, setPumpId] = useState<string | null>(seed?.pumpId ?? null);
+  const [volume, setVolume] = useState(seed?.volume ?? "");
+  const [milkLocation, setMilkLocation] = useState<ChillerLocation>(
+    seed?.location === "fridge" || seed?.location === "freezer" || seed?.location === "cooler" ? seed.location : "fridge",
+  );
+  const [unit, setUnit] = useState(seed?.unit ?? "ml");
   const lock = useRef(false);
-  const { when, setWhen } = useWhen();
+  const { when, setWhen } = useWhen(seed?.when);
+  void onSaved;
 
   useEffect(() => {
     void loadFamilyContext().then((context) => {
@@ -478,86 +496,103 @@ export function PumpLog({
   const canLog = pumpedAmount !== null && pumpedAmount > 0 && minutesOk && Boolean(selectedPump);
   const canConfirm = (storeParts && Boolean(selectedPump)) || saveMilk;
 
-  async function confirm() {
+  function confirm() {
     if (lock.current || !canConfirm) return;
     lock.current = true;
-    setPending("chiller");
-    setStatus(null);
-    try {
-      const parsed = volume.trim() === "" ? null : parseDecimal(volume);
-      const volumeMl = parsed !== null && parsed > 0 ? volumeToMl(parsed, unit) : null;
-      const context = await loadFamilyContext();
-      const washByHours = context?.washByHours ?? care.washByHours;
-      if (storeParts && selectedPump) {
-        const saved = await saveChillerItem({
+    const parsed = volume.trim() === "" ? null : parseDecimal(volume);
+    const volumeMl = parsed !== null && parsed > 0 ? volumeToMl(parsed, unit) : null;
+    const washByHours = care.washByHours;
+    const storedAt = when.toISOString();
+    const edit = onEdit ?? (() => undefined);
+    if (storeParts && selectedPump) {
+      const id = crypto.randomUUID();
+      const expiresAt = partsExpiresAt(when, washByHours).toISOString();
+      launchChiller({
+        item: {
+          id,
           type: "pump_parts",
           location: "fridge",
-          volumeMl: null,
+          storedAt,
+          expiresAt,
           pumpId: selectedPump.id,
-          washByHours,
-          storedAt: when.toISOString(),
-        });
-        if (saved.status === "error") {
-          setStatus(t("common.failed"));
-          return;
-        }
-        if (activePartPumpIds.includes(selectedPump.id)) toast(t("chiller.partsUpdated"));
-      }
-      if (saveMilk) {
-        const saved = await saveChillerItem({
+          volumeMl: null,
+          note: null,
+          pumpName: pumpLabel(selectedPump),
+          babyId: null,
+          babyName: null,
+          clearedAt: null,
+          clearedReason: null,
+          pending: true,
+        },
+        seed: { id, pumpId: selectedPump.id, when: storedAt },
+        title: t("chiller.parts"),
+        failText: t("common.failed"),
+        retryText: t("common.retry"),
+        washByHours,
+        onClose,
+        onEdit: edit,
+      });
+      if (activePartPumpIds.includes(selectedPump.id)) toast(t("chiller.partsUpdated"));
+    }
+    if (saveMilk) {
+      const id = crypto.randomUUID();
+      const ml = volumeMl ?? (pumpedAmount !== null ? volumeToMl(pumpedAmount, unit) : null);
+      launchChiller({
+        item: {
+          id,
           type: "milk",
           location: milkLocation,
-          volumeMl: volumeMl ?? (pumpedAmount !== null ? volumeToMl(pumpedAmount, unit) : null),
+          storedAt,
+          expiresAt: milkExpiresAt(when, milkLocation).toISOString(),
           pumpId: null,
-          washByHours,
+          volumeMl: ml,
+          note: null,
+          pumpName: null,
           babyId: null,
-          storedAt: when.toISOString(),
-        });
-        if (saved.status === "error") {
-          setStatus(t("common.failed"));
-          return;
-        }
-      }
-      await onSaved();
-      onClose();
-    } finally {
-      lock.current = false;
-      setPending(null);
+          babyName: null,
+          clearedAt: null,
+          clearedReason: null,
+          pending: true,
+        },
+        seed: { id, location: milkLocation, volume: volume, when: storedAt },
+        title: t("chiller.milk"),
+        failText: t("common.failed"),
+        retryText: t("common.retry"),
+        washByHours,
+        onClose,
+        onEdit: edit,
+      });
     }
   }
 
-  async function logPump() {
-    if (lock.current || !selectedPump || !canLog) return;
+  function logPump() {
+    if (lock.current || !selectedPump || !canLog || pumpedAmount === null) return;
     lock.current = true;
-    setPending("log");
-    setStatus(null);
-    try {
-      const minutesValue =
-        minutes.trim() === "" || sessionMinutes === null ? null : Math.round(sessionMinutes * 60);
-      const result = await saveLog({
+    const id = seed?.id || crypto.randomUUID();
+    const minutesValue = minutes.trim() === "" || sessionMinutes === null ? null : Math.round(sessionMinutes * 60);
+    markPumpUsed(selectedPump.id);
+    launchLog({
+      input: {
+        id,
         kind: "pump",
-        amountMl: volumeToMl(pumpedAmount ?? 0, unit),
+        amountMl: volumeToMl(pumpedAmount, unit),
         durationSeconds: minutesValue && minutesValue > 0 ? minutesValue : null,
         pumpId: selectedPump.id,
         occurredAt: when.toISOString(),
-      });
-      if (result === "needs-family") {
+      },
+      seed: { id, amount: pumpedMl, minutes, unit, pumpId: selectedPump.id, when: when.toISOString() },
+      sheet: "pump",
+      title: t("home.pump"),
+      failText: t("common.failed"),
+      retryText: t("common.retry"),
+      onClose: () => setLogged(true),
+      onEdit: onEdit ?? (() => undefined),
+      onNeedsFamily: () => {
         onClose();
         router.push("/onboarding");
-        return;
-      }
-      if (result === "error") {
-        setStatus(t("common.failed"));
-        return;
-      }
-      markPumpUsed(selectedPump.id);
-      await onSaved();
-      setLogged(true);
-      setStatus(null);
-    } finally {
-      lock.current = false;
-      setPending(null);
-    }
+      },
+    });
+    lock.current = false;
   }
 
   return (
@@ -641,12 +676,12 @@ export function PumpLog({
       <div data-slot="dialog-footer" className={footer}>
         {status ? <p role="status">{status}</p> : null}
         {logged ? (
-          <Button type="button" onClick={() => void confirm()} disabled={!canConfirm || pending !== null} aria-busy={pending === "chiller"}>
-            {pending === "chiller" ? <SavingLabel label={t("common.saving")} /> : t("pump.confirm")}
+          <Button type="button" onClick={() => confirm()} disabled={!canConfirm}>
+            {t("pump.confirm")}
           </Button>
         ) : (
-          <Button type="button" onClick={() => void logPump()} disabled={!canLog || pending !== null} aria-busy={pending === "log"}>
-            {pending === "log" ? <SavingLabel label={t("common.saving")} /> : t("pump.log")}
+          <Button type="button" onClick={() => logPump()} disabled={!canLog}>
+            {t("pump.log")}
           </Button>
         )}
       </div>

@@ -13,6 +13,7 @@ import { useSheetPresence } from "@/components/sheet-presence";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/provider";
+import type { FailedSave, SaveSeed } from "@/lib/optimistic-care";
 import type { MessageKey } from "@/i18n/translate";
 
 export type QuickLogKind = "diaper" | "feed" | "dbf" | "pump" | "chiller" | "weight";
@@ -34,6 +35,9 @@ export function QuickLogDialog({
   activePartPumpIds = [],
   onClose,
   onSaved,
+  seed,
+  notice,
+  onEdit,
 }: {
   kind: QuickLogKind | null;
   pumps: SheetPump[];
@@ -42,6 +46,9 @@ export function QuickLogDialog({
   activePartPumpIds?: string[];
   onClose: () => void;
   onSaved: () => Promise<void>;
+  seed?: SaveSeed | null;
+  notice?: string | null;
+  onEdit?: (failed: FailedSave) => void;
 }) {
   const { t } = useI18n();
   useSheetPresence(kind !== null);
@@ -73,15 +80,16 @@ export function QuickLogDialog({
               </Button>
             </div>
             <DialogDescription className="sr-only">{t(meta.lede)}</DialogDescription>
-            {kind === "diaper" ? <DiaperLog onClose={onClose} onSaved={onSaved} /> : null}
-            {kind === "feed" ? <FeedLog onClose={onClose} onSaved={onSaved} /> : null}
-            {kind === "dbf" ? <DbfLog onClose={onClose} onSaved={onSaved} /> : null}
+            {kind === "diaper" ? <DiaperLog key={seed?.id ?? "new"} onClose={onClose} onSaved={onSaved} seed={seed} notice={notice} onEdit={onEdit} /> : null}
+            {kind === "feed" ? <FeedLog key={seed?.id ?? "new"} onClose={onClose} onSaved={onSaved} seed={seed} notice={notice} onEdit={onEdit} /> : null}
+            {kind === "dbf" ? <DbfLog key={seed?.id ?? "new"} onClose={onClose} onSaved={onSaved} seed={seed} notice={notice} onEdit={onEdit} /> : null}
             {kind === "pump" ? (
-              <PumpLog onClose={onClose} onSaved={onSaved} activePartPumpIds={activePartPumpIds} />
+              <PumpLog key={seed?.id ?? "new"} onClose={onClose} onSaved={onSaved} activePartPumpIds={activePartPumpIds} seed={seed} notice={notice} onEdit={onEdit} />
             ) : null}
-            {kind === "weight" ? <WeightLog onClose={onClose} onSaved={onSaved} /> : null}
+            {kind === "weight" ? <WeightLog key={seed?.id ?? "new"} onClose={onClose} onSaved={onSaved} seed={seed} notice={notice} onEdit={onEdit} /> : null}
             {kind === "chiller" ? (
               <ChillerSheet
+                key={seed?.id ?? "new"}
                 open
                 pumps={pumps}
                 babies={babies}
@@ -89,6 +97,9 @@ export function QuickLogDialog({
                 activePartPumpIds={activePartPumpIds}
                 onClose={onClose}
                 onSaved={onSaved}
+                seed={seed}
+                notice={notice}
+                onEdit={onEdit}
               />
             ) : null}
           </>

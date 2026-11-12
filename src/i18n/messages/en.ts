@@ -99,6 +99,7 @@ export const en = {
     failed: "Could not save.",
     loading: "Loading…",
     saving: "Saving…",
+    retry: "Retry",
     search: "Search",
     choose: "Choose",
   },

@@ -25,6 +25,7 @@ type TimelineLog = {
   poopColor: string | null;
   poopAmount: string | null;
   by: string | null;
+  pending?: boolean;
 };
 
 function startOfDay() {
@@ -164,7 +165,10 @@ export default function TimelinePage() {
                 <span className="font-semibold">{label(log, t)}</span>
                 {log.amountMl ? <span> · {log.amountMl} ml</span> : null}
                 {log.by ? <span> · {log.by}</span> : null}
-                <span className="text-muted"> · {clock(log.occurredAt, locale)}</span>
+                <span className={log.pending ? "text-muted/70" : "text-muted"}>
+                  {" · "}
+                  {log.pending ? t("common.saving") : clock(log.occurredAt, locale)}
+                </span>
               </li>
             ))}
           </ol>

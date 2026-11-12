@@ -11,6 +11,7 @@ export type LiveChillerItem = ChillerItem & {
   babyName: string | null;
   clearedAt: string | null;
   clearedReason: ClearReason | null;
+  pending?: boolean;
 };
 
 function isClearReason(value: unknown): value is ClearReason {

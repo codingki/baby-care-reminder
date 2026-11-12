@@ -1,4 +1,4 @@
-export type QueueKind = "pump" | "log" | "chiller";
+export type QueueKind = "pump" | "log" | "chiller" | "weight";
 
 export type QueuedItem = {
   id: string;
@@ -18,7 +18,7 @@ export function readQueue(): QueuedItem[] {
       (item) =>
         item &&
         typeof item.id === "string" &&
-        (item.kind === "pump" || item.kind === "log" || item.kind === "chiller") &&
+        (item.kind === "pump" || item.kind === "log" || item.kind === "chiller" || item.kind === "weight") &&
         typeof item.row === "object",
     );
   } catch {

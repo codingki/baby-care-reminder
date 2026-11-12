@@ -11,6 +11,10 @@ export const QUERY_CACHE_BUSTER = "0.1.0-care-1";
 let activeClient: QueryClient | null = null;
 let activePersister: Persister | null = null;
 
+export function getCareQueryClient() {
+  return activeClient;
+}
+
 export function createCareQueryClient() {
   return new QueryClient({
     defaultOptions: {

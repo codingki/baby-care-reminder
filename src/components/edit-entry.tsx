@@ -12,6 +12,7 @@ import { WhenField, useWhen } from "@/components/when-field";
 import { useI18n } from "@/i18n/provider";
 import { formatDecimal, parseDecimal } from "@/lib/decimal";
 import { milkExpiresAt } from "@/lib/storage-rules";
+import { afterEntry } from "@/lib/optimistic-care";
 import { createClient } from "@/lib/supabase/client";
 import { clearChillerItem, dropChillerItem, invalidateChiller, upsertChillerItem } from "@/lib/chiller-cache";
 import { forgetChillerItem, markChillerCleared, type ChillerLocation } from "@/lib/device-care";
@@ -111,14 +112,18 @@ function LogEditor({
       }
       patch.duration_seconds = Math.round(parsedMinutes * 60);
     }
-    const { error } = await supabase.from("logs").update(patch).eq("id", entry.id).is("deleted_at", null);
     setPending(null);
-    if (error) {
-      toast(error.message || t("common.failed"));
-      return;
-    }
-    await onSaved();
     onClose();
+    void afterEntry(entry.id, async () => {
+      const { error } = await supabase.from("logs").update(patch).eq("id", entry.id).is("deleted_at", null);
+      if (error) {
+        toast(error.message || t("common.failed"), {
+          action: { label: t("common.retry"), onClick: () => undefined },
+        });
+        return;
+      }
+      void onSaved();
+    });
   }
 
   return (
@@ -405,20 +410,23 @@ async function softDelete({
   onSaved: () => Promise<void>;
 }) {
   setPending("delete");
-  const removed = table === "chiller_items" && queryClient ? dropChillerItem(queryClient, familyId, id) : null;
-  if (table === "chiller_items") forgetChillerItem(id);
   const supabase = createClient();
   const deletedAt = new Date().toISOString();
-  const { error } = await supabase.from(table).update({ deleted_at: deletedAt }).eq("id", id).is("deleted_at", null);
-  setPending(null);
-  if (error) {
-    if (removed && queryClient) upsertChillerItem(queryClient, familyId, removed);
-    toast(error.message || t("common.failed"));
+  try {
+    await afterEntry(id, async () => {
+      const { error } = await supabase.from(table).update({ deleted_at: deletedAt }).eq("id", id).is("deleted_at", null);
+      if (error) throw new Error(error.message);
+    });
+  } catch (error) {
+    setPending(null);
+    toast(error instanceof Error ? error.message : t("common.failed"));
     return;
   }
-  if (familyId && queryClient) await invalidateChiller(queryClient, familyId);
-  await onSaved();
+  const removed = table === "chiller_items" && queryClient ? dropChillerItem(queryClient, familyId, id) : null;
+  if (table === "chiller_items") forgetChillerItem(id);
+  setPending(null);
   onClose();
+  void onSaved();
   toast(t("edit.deleted"), {
     action: {
       label: t("chiller.undo"),

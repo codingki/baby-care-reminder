@@ -82,7 +82,7 @@ export function BabyProfile() {
               weights: weights.flatMap((row) => {
                 if (row.baby_id !== baby.id) return [];
                 if (typeof row.weight_grams !== "number" || typeof row.weighed_on !== "string") return [];
-                return [{ id: String(row.id), grams: row.weight_grams, on: row.weighed_on }];
+                return [{ id: String(row.id), grams: row.weight_grams, on: row.weighed_on, pending: false }];
               }),
             },
           ];
@@ -197,7 +197,10 @@ export function BabyProfile() {
                   {baby.weights.map((row) => (
                     <li key={row.id} className="flex items-baseline justify-between gap-3 text-sm">
                       <span>{formatDate(row.on, locale)}</span>
-                      <span className="font-semibold">{t("weight.kgValue", { kg: formatKg(row.grams, locale) })}</span>
+                      <span className="font-semibold">
+                        {t("weight.kgValue", { kg: formatKg(row.grams, locale) })}
+                        {row.pending ? <span className="ml-2 text-xs font-medium text-muted/70">{t("common.saving")}</span> : null}
+                      </span>
                     </li>
                   ))}
                 </ul>
