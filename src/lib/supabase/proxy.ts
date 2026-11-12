@@ -27,9 +27,69 @@ function copySession(from: NextResponse, to: NextResponse): NextResponse {
   return to;
 }
 
+function isPrefetch(request: NextRequest) {
+  return (
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("x-middleware-prefetch") === "1"
+  );
+}
+
+function isRsc(request: NextRequest) {
+  return request.headers.get("rsc") === "1";
+}
+
+function accessTokenExpiry(request: NextRequest): number | null {
+  let ref = "";
+  try {
+    ref = new URL(getSupabaseEnv().url).hostname.split(".")[0] ?? "";
+  } catch {
+    return null;
+  }
+  if (!ref) return null;
+  const prefix = `sb-${ref}-auth-token`;
+  const chunks = request.cookies
+    .getAll()
+    .filter((cookie) => cookie.name === prefix || cookie.name.startsWith(`${prefix}.`))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  if (chunks.length === 0) return null;
+  let raw = chunks.map((cookie) => cookie.value).join("");
+  if (raw.startsWith("base64-")) {
+    try {
+      raw = Buffer.from(raw.slice("base64-".length), "base64url").toString("utf8");
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const parsed = JSON.parse(raw) as { access_token?: string } | string;
+    const token = typeof parsed === "string" ? parsed : parsed.access_token;
+    if (!token) return null;
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as {
+      exp?: number;
+    };
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+function tokenNeedsRefresh(request: NextRequest) {
+  const exp = accessTokenExpiry(request);
+  if (!exp) return true;
+  return exp * 1000 - Date.now() < 60_000;
+}
+
 export async function updateSession(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-bcr-pathname", request.nextUrl.pathname);
+
+  const clientNavigation = isPrefetch(request) || (isRsc(request) && !tokenNeedsRefresh(request));
+  if (clientNavigation) {
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+  }
 
   const forward = () =>
     NextResponse.next({

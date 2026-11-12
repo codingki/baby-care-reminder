@@ -17,5 +17,10 @@ export default defineConfig({
       name: "iphone",
       use: { ...devices["iPhone 13"], browserName: "webkit" },
     },
+    {
+      name: "android",
+      use: { ...devices["Pixel 5"], browserName: "chromium" },
+      testMatch: /nav-speed.spec.ts/,
+    },
   ],
 });

@@ -172,9 +172,10 @@ export default function FamilyPage() {
   return (
     <Screen titleKey="family.title" ledeKey="family.lede" showLater={false}>
       {state === "loading" ? (
-        <p className="text-sm text-muted" role="status" aria-live="polite">
-          {t("family.loading")}
-        </p>
+        <div className="flex flex-col gap-3" role="status" aria-label={t("family.loading")}>
+          <div className="h-24 w-full rounded-2xl bg-[#f3f5f3]" />
+          <div className="h-24 w-full rounded-2xl bg-[#f3f5f3]" />
+        </div>
       ) : null}
       {state === "error" ? (
         <p className="text-sm text-muted" role="alert">

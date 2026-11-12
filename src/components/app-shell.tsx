@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useRef } from "react";
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CareIcon, type CareIconName } from "@/components/care-icon";
 import { Mark } from "@/components/mark";
 import { PhoneFrame } from "@/components/phone-frame";
@@ -97,6 +97,23 @@ function PathChrome({ children }: { children: React.ReactNode }) {
   const bare = hidesBrandHeader(pathname);
   const hideNav = sheetOpen || log || setup;
   const mainRef = useRef<HTMLElement>(null);
+  const scrollTops = useRef(new Map<string, number>());
+  const previousPath = useRef(pathname);
+
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    if (previousPath.current !== pathname) {
+      scrollTops.current.set(previousPath.current, main.scrollTop);
+      main.scrollTop = scrollTops.current.get(pathname) ?? 0;
+      previousPath.current = pathname;
+    }
+    const remember = () => {
+      scrollTops.current.set(pathname, main.scrollTop);
+    };
+    main.addEventListener("scroll", remember, { passive: true });
+    return () => main.removeEventListener("scroll", remember);
+  }, [pathname]);
 
   return (
     <>
@@ -142,6 +159,13 @@ function BrandHeader() {
 
 function BottomNav({ pathname }: { pathname: string | null }) {
   const { t } = useI18n();
+  const router = useRouter();
+  const [pressed, setPressed] = useState<string | null>(null);
+  const current = pressed && pathname && !isActive(pathname, pressed) ? pressed : pathname;
+
+  useEffect(() => {
+    for (const item of navItems) router.prefetch(item.href);
+  }, [router]);
 
   return (
     <nav
@@ -150,12 +174,15 @@ function BottomNav({ pathname }: { pathname: string | null }) {
     >
       <ul className="grid grid-cols-4">
         {navItems.map((item) => {
-          const active = pathname ? isActive(pathname, item.href) : false;
+          const active = current ? isActive(current, item.href) : false;
           return (
             <li key={item.href}>
               <Link
                 href={item.href}
+                prefetch
                 aria-current={active ? "page" : undefined}
+                data-current={active ? "true" : "false"}
+                onPointerDown={() => setPressed(item.href)}
                 className={`flex min-h-16 flex-col items-center justify-center gap-1 px-2 text-[11px] font-medium ${
                   active ? "text-accent" : "text-muted"
                 }`}
